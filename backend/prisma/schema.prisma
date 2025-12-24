@@ -1,0 +1,974 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ USER & AUTH ============
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String?
+  name         String?
+
+  // OAuth connections
+  stravaId String? @unique
+
+  // Relations
+  stravaConnection StravaConnection?
+  settings         UserSettings?
+  profile          AthleteProfile?
+  activities       Activity[]
+  strengthProfile  StrengthProfile?
+  strengthSessions StrengthSession[]
+  plans            TrainingPlan[]
+  plannedWorkouts  PlannedWorkout[]
+  dailyMetrics     DailyMetrics[]
+  gear             Gear[]
+  dailyNutrition   DailyNutrition[]
+  routines         Routine[]
+  workoutTemplates WorkoutTemplate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([stravaId])
+}
+
+model UserSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Preferences
+  units        Units  @default(METRIC)
+  weekStartDay Int    @default(1) // 0=Sun, 1=Mon
+  timezone     String @default("UTC")
+
+  // Notifications
+  emailDigest  Boolean @default(true)
+  weeklyReport Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
+}
+
+model StravaConnection {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  stravaAthleteId String
+  accessToken     String
+  refreshToken    String
+  expiresAt       DateTime
+  scope           String?
+
+  lastSync DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stravaAthleteId])
+}
+
+// ============ ATHLETE PROFILE ============
+
+model AthleteProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Basic info
+  dateOfBirth DateTime?
+  sex         Sex?
+  height      Float? // cm
+  weight      Float? // kg
+
+  // Thresholds
+  ftp           Int?   // Functional Threshold Power (watts)
+  lthr          Int?   // Lactate Threshold HR (bpm)
+  thresholdPace Float? // Threshold pace (m/s)
+  css           Float? // Critical Swim Speed (m/s)
+  maxHr         Int?   // Max heart rate
+  restingHr     Int?   // Resting heart rate
+
+  // Zones stored as JSON for flexibility
+  hrZones    Json?
+  powerZones Json?
+  paceZones  Json?
+
+  updatedAt DateTime @updatedAt
+}
+
+// ============ ACTIVITIES ============
+
+model Activity {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // External IDs
+  stravaId String? @unique
+
+  // Basic info
+  name        String
+  description String?
+  sportType   SportType
+  workoutType WorkoutType?
+
+  // Timing
+  startDate   DateTime
+  elapsedTime Int // seconds
+  movingTime  Int // seconds
+
+  // Distance & elevation
+  distance       Float? // meters
+  totalElevation Float? // meters
+
+  // Metrics - calculated
+  tss              Float? // Training Stress Score
+  normalizedPower  Float? // NP (watts)
+  intensityFactor  Float? // IF
+  variabilityIndex Float? // VI
+
+  // Averages
+  avgHeartRate Int?
+  maxHeartRate Int?
+  avgPower     Int? // watts
+  maxPower     Int?
+  avgSpeed     Float? // m/s
+  maxSpeed     Float?
+  avgCadence   Int?
+
+  // Running specific
+  avgPace        Float? // min/km
+  normalizedPace Float? // NGP in min/km
+
+  // Swimming specific
+  poolLength    Int?   // meters
+  avgSwolf      Float?
+  avgStrokeRate Float?
+
+  // Calculated scores
+  efficiencyFactor Float? // EF
+  decoupling       Float? // Pw:Hr or Pa:Hr
+
+  // Status
+  isManual   Boolean @default(false)
+  hasStreams Boolean @default(false)
+  processed  Boolean @default(false)
+
+  // Relations
+  records ActivityRecord[]
+  laps    ActivityLap[]
+  splits  ActivitySplit[]
+  metrics ActivityMetrics?
+  gear    ActivityGear[]
+
+  // Linked to planned workout
+  plannedWorkouts PlannedWorkout[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, startDate])
+  @@index([userId, sportType])
+  @@index([stravaId])
+}
+
+model ActivityRecord {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  // Time series data
+  timestamp Int // seconds from start
+
+  // Optional fields (null if not recorded)
+  heartRate   Int?
+  power       Int?
+  cadence     Int?
+  speed       Float? // m/s
+  altitude    Float? // meters
+  latitude    Float?
+  longitude   Float?
+  temperature Float? // celsius
+
+  // Running dynamics
+  groundContactTime   Int?   // ms
+  verticalOscillation Float? // cm
+  strideLength        Float? // meters
+
+  @@index([activityId, timestamp])
+}
+
+model ActivityLap {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  lapIndex    Int
+  startTime   DateTime
+  elapsedTime Int // seconds
+  movingTime  Int
+  distance    Float?
+
+  avgHeartRate Int?
+  maxHeartRate Int?
+  avgPower     Int?
+  maxPower     Int?
+  avgSpeed     Float?
+  avgCadence   Int?
+
+  @@index([activityId])
+}
+
+model ActivitySplit {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  splitIndex    Int
+  distance      Float // meters (usually 1000m or 1609m)
+  elapsedTime   Int   // seconds
+  movingTime    Int
+  avgHeartRate  Int?
+  avgPower      Int?
+  avgPace       Float? // min/km
+  elevationDiff Float?
+
+  @@index([activityId])
+}
+
+model ActivityMetrics {
+  id         String   @id @default(cuid())
+  activityId String   @unique
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  // Power peaks (watts)
+  peak5s    Int?
+  peak30s   Int?
+  peak1min  Int?
+  peak5min  Int?
+  peak20min Int?
+  peak60min Int?
+
+  // Pace peaks (m/s) - for running
+  pacePeak5s    Float?
+  pacePeak1min  Float?
+  pacePeak5min  Float?
+  pacePeak20min Float?
+
+  // Efficiency & Decoupling
+  efficiencyFactor  Float?
+  aerobicDecoupling Float?
+
+  // Running dynamics averages
+  avgGCT          Int?   // ground contact time (ms)
+  avgVO           Float? // vertical oscillation (cm)
+  avgStrideLength Float? // meters
+  gctBalance      Float? // L/R balance %
+
+  // Heart rate zones (seconds in each)
+  hrZone1Time Int?
+  hrZone2Time Int?
+  hrZone3Time Int?
+  hrZone4Time Int?
+  hrZone5Time Int?
+
+  // Power zones (seconds in each)
+  powerZone1Time Int?
+  powerZone2Time Int?
+  powerZone3Time Int?
+  powerZone4Time Int?
+  powerZone5Time Int?
+  powerZone6Time Int?
+  powerZone7Time Int?
+
+  createdAt DateTime @default(now())
+}
+
+// ============ DAILY METRICS ============
+
+model DailyMetrics {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  date DateTime @db.Date
+
+  // Training Load
+  tss      Float @default(0)
+  ctl      Float? // Chronic Training Load (fitness)
+  atl      Float? // Acute Training Load (fatigue)
+  tsb      Float? // Training Stress Balance (form)
+  rampRate Float? // Weekly CTL change
+
+  // Activity summary
+  activityCount Int   @default(0)
+  totalDuration Int   @default(0) // seconds
+  totalDistance Float @default(0) // meters
+
+  // By sport
+  swimDuration     Int   @default(0)
+  bikeDuration     Int   @default(0)
+  runDuration      Int   @default(0)
+  strengthDuration Int   @default(0)
+  swimTss          Float @default(0)
+  bikeTss          Float @default(0)
+  runTss           Float @default(0)
+
+  // Wellness (from external sources)
+  sleepDuration Int?   // minutes
+  sleepQuality  Float? // 0-100
+  restingHr     Int?
+  hrv           Float? // RMSSD
+  bodyWeight    Float? // kg
+
+  // Readiness
+  trainingReadiness Float? // 0-100 calculated score
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+// ============ STRENGTH TRAINING ============
+
+model StrengthProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  strengthScore Float?
+  symmetryScore Float?
+  totalScore    Float?
+
+  squatScore      Float?
+  floorPullScore  Float?
+  horizPressScore Float?
+  vertPressScore  Float?
+  pullScore       Float?
+
+  classification String?
+
+  lifts        LiftRecord[]
+  muscleScores MuscleGroupScore[]
+
+  updatedAt DateTime @updatedAt
+}
+
+model LiftRecord {
+  id        String          @id @default(cuid())
+  profileId String
+  profile   StrengthProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  liftType   LiftType
+  weight     Float
+  reps       Int
+  bodyweight Float
+
+  estimated1RM   Float
+  strengthScore  Float
+  percentile     Float?
+  classification String
+
+  isBodyweight Boolean @default(false)
+  addedWeight  Float?
+
+  performedAt DateTime @default(now())
+  source      String? // "manual", "session", "import"
+  sessionId   String?
+
+  @@index([profileId, liftType])
+  @@index([profileId, performedAt])
+}
+
+model MuscleGroupScore {
+  id        String          @id @default(cuid())
+  profileId String
+  profile   StrengthProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  muscleGroup      MuscleGroup
+  score            Float
+  classification   String
+  percentDeviation Float
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([profileId, muscleGroup])
+}
+
+model StrengthSession {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name  String
+  notes String?
+  date  DateTime @default(now())
+
+  duration Int? // seconds
+
+  exercises StrengthExercise[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, date])
+}
+
+model StrengthExercise {
+  id        String          @id @default(cuid())
+  sessionId String
+  session   StrengthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  exerciseName String
+  liftType     LiftType?
+  orderIndex   Int
+
+  // Sets data stored as JSON array
+  // [{ reps: 5, weight: 100, rpe: 8 }, ...]
+  sets Json
+
+  notes String?
+
+  @@index([sessionId])
+}
+
+// ============ TRAINING PLANS ============
+
+model TrainingPlan {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+
+  planType    PlanType
+  targetEvent String?
+  targetDate  DateTime?
+
+  startDate DateTime
+  endDate   DateTime
+  weeks     Int
+
+  periodization  PeriodizationType @default(LINEAR)
+  weeklyHoursMin Float?
+  weeklyHoursMax Float?
+  peakTssWeek    Float?
+
+  status PlanStatus @default(ACTIVE)
+
+  phases   PlanPhase[]
+  planWeeks PlanWeek[]
+  workouts PlannedWorkout[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+}
+
+model PlanPhase {
+  id     String       @id @default(cuid())
+  planId String
+  plan   TrainingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  name      String
+  phaseType PhaseType
+  weekStart Int
+  weekEnd   Int
+
+  focusAreas     String[]
+  intensityLevel String
+  volumeLevel    String
+  description    String?
+
+  @@index([planId])
+}
+
+model PlanWeek {
+  id     String       @id @default(cuid())
+  planId String
+  plan   TrainingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  weekNumber Int
+  startDate  DateTime
+  endDate    DateTime
+
+  targetTss       Float?
+  targetHours     Float?
+  targetSwimHours Float?
+  targetBikeHours Float?
+  targetRunHours  Float?
+  targetStrength  Int?
+
+  actualTss   Float?
+  actualHours Float?
+  compliance  Float?
+
+  weekType WeekType @default(NORMAL)
+  notes    String?
+
+  workouts PlannedWorkout[]
+
+  @@unique([planId, weekNumber])
+  @@index([planId])
+}
+
+model PlannedWorkout {
+  id     String        @id @default(cuid())
+  planId String?
+  plan   TrainingPlan? @relation(fields: [planId], references: [id], onDelete: Cascade)
+  weekId String?
+  week   PlanWeek?     @relation(fields: [weekId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  scheduledDate DateTime
+  dayOfWeek     Int
+  timeOfDay     String?
+
+  name        String
+  description String?
+  sportType   SportType
+  workoutType WorkoutType?
+
+  targetDuration Int?
+  targetDistance Float?
+  targetTss      Float?
+
+  isStructured Boolean @default(false)
+  structure    Json?
+
+  status              WorkoutStatus @default(PLANNED)
+  completedActivityId String?
+  completedActivity   Activity?     @relation(fields: [completedActivityId], references: [id])
+
+  templateId String?
+  template   WorkoutTemplate? @relation(fields: [templateId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, scheduledDate])
+  @@index([planId])
+}
+
+model WorkoutTemplate {
+  id     String  @id @default(cuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  name        String
+  description String?
+  sportType   SportType
+  workoutType WorkoutType?
+
+  estimatedDuration Int?
+  estimatedDistance Float?
+  estimatedTss      Float?
+
+  isStructured Boolean @default(false)
+  structure    Json?
+
+  category   String?
+  difficulty String?
+  tags       String[]
+
+  isPublic   Boolean @default(false)
+  usageCount Int     @default(0)
+
+  plannedWorkouts PlannedWorkout[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sportType, category])
+}
+
+// ============ GEAR ============
+
+model Gear {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  brand     String?
+  model     String?
+  gearType  GearType
+  sportType SportType?
+
+  purchaseDate  DateTime?
+  purchasePrice Float?
+
+  totalDistance   Float @default(0)
+  totalDuration   Int   @default(0)
+  totalActivities Int   @default(0)
+
+  maxDistance Float?
+  maxDuration Int?
+  retiredAt   DateTime?
+
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false)
+
+  notes    String?
+  imageUrl String?
+
+  activities  ActivityGear[]
+  maintenance GearMaintenance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, gearType, isActive])
+}
+
+model ActivityGear {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  gearId     String
+  gear       Gear     @relation(fields: [gearId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, gearId])
+}
+
+model GearMaintenance {
+  id     String @id @default(cuid())
+  gearId String
+  gear   Gear   @relation(fields: [gearId], references: [id], onDelete: Cascade)
+
+  maintenanceType String
+  date            DateTime @default(now())
+  notes           String?
+  cost            Float?
+
+  distanceAtMaintenance Float?
+  nextDueDistance       Float?
+  nextDueDate           DateTime?
+
+  @@index([gearId])
+}
+
+// ============ NUTRITION ============
+
+model DailyNutrition {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  date DateTime @db.Date
+
+  calories Int?
+  protein  Float?
+  carbs    Float?
+  fat      Float?
+  fiber    Float?
+  sugar    Float?
+  sodium   Float?
+
+  waterMl Int?
+
+  calorieTarget Float?
+  proteinTarget Float?
+  carbTarget    Float?
+  fatTarget     Float?
+
+  source String?
+
+  entries NutritionEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model NutritionEntry {
+  id      String         @id @default(cuid())
+  dailyId String
+  daily   DailyNutrition @relation(fields: [dailyId], references: [id], onDelete: Cascade)
+
+  meal     MealType
+  name     String
+  servings Float    @default(1)
+
+  calories Int?
+  protein  Float?
+  carbs    Float?
+  fat      Float?
+
+  time  DateTime?
+  notes String?
+
+  createdAt DateTime @default(now())
+}
+
+// ============ RESOURCES ============
+
+model Resource {
+  id String @id @default(cuid())
+
+  name        String
+  description String?
+
+  category    ResourceCategory
+  sportType   SportType?
+  subcategory String?
+  tags        String[]
+
+  contentType  ContentType
+  content      String?
+  videoUrl     String?
+  videoEmbedId String?
+  imageUrl     String?
+  duration     Int?
+
+  instructions String?
+  cues         String[]
+  equipment    String[]
+
+  difficulty  Difficulty @default(BEGINNER)
+  targetAreas String[]
+
+  isPublic   Boolean @default(true)
+  createdBy  String?
+  usageCount Int     @default(0)
+
+  routineItems RoutineItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category, sportType])
+}
+
+model Routine {
+  id     String  @id @default(cuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  name        String
+  description String?
+  category    ResourceCategory
+  sportType   SportType?
+
+  estimatedDuration Int
+
+  isPublic Boolean @default(false)
+  isSystem Boolean @default(false)
+
+  items RoutineItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category, sportType])
+}
+
+model RoutineItem {
+  id        String   @id @default(cuid())
+  routineId String
+  routine   Routine  @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  resourceId String?
+  resource   Resource? @relation(fields: [resourceId], references: [id])
+
+  orderIndex     Int
+  customName     String?
+  customDuration Int?
+  reps           Int?
+  sets           Int?
+  restBetweenSets Int?
+
+  customInstructions String?
+
+  @@index([routineId])
+}
+
+// ============ ENUMS ============
+
+enum Units {
+  METRIC
+  IMPERIAL
+}
+
+enum Sex {
+  MALE
+  FEMALE
+}
+
+enum SportType {
+  SWIM
+  BIKE
+  RUN
+  STRENGTH
+  OTHER
+}
+
+enum WorkoutType {
+  RACE
+  LONG_RUN
+  TEMPO
+  INTERVALS
+  RECOVERY
+  ENDURANCE
+  STRENGTH
+  BRICK
+  TIME_TRIAL
+  OPEN_WATER
+  TECHNIQUE
+  OTHER
+}
+
+enum LiftType {
+  BACK_SQUAT
+  FRONT_SQUAT
+  DEADLIFT
+  SUMO_DEADLIFT
+  POWER_CLEAN
+  BENCH_PRESS
+  INCLINE_BENCH
+  DIP
+  OVERHEAD_PRESS
+  PUSH_PRESS
+  PULL_UP
+  CHIN_UP
+  PENDLAY_ROW
+}
+
+enum MuscleGroup {
+  CHEST
+  ANTERIOR_DELTS
+  LATERAL_DELTS
+  TRICEPS
+  LATS
+  REAR_DELTS
+  BICEPS
+  TRAPS
+  ABDOMINALS
+  OBLIQUES
+  SPINAL_ERECTORS
+  QUADS
+  GLUTES
+  HAMSTRINGS
+  HIP_FLEXORS
+  ADDUCTORS
+  CALVES
+  FOREARMS
+}
+
+enum PlanType {
+  SPRINT_TRI
+  OLYMPIC_TRI
+  HALF_IRONMAN
+  IRONMAN
+  MARATHON
+  HALF_MARATHON
+  CENTURY
+  GENERAL_FITNESS
+  CUSTOM
+}
+
+enum PeriodizationType {
+  LINEAR
+  REVERSE_LINEAR
+  BLOCK
+  POLARIZED
+  PYRAMIDAL
+}
+
+enum PhaseType {
+  BASE
+  BUILD
+  PEAK
+  RACE
+  RECOVERY
+  TRANSITION
+}
+
+enum WeekType {
+  NORMAL
+  RECOVERY
+  TEST
+  RACE
+  TRANSITION
+}
+
+enum PlanStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum WorkoutStatus {
+  PLANNED
+  COMPLETED
+  PARTIAL
+  SKIPPED
+  MOVED
+}
+
+enum GearType {
+  BIKE
+  BIKE_SHOES
+  RUN_SHOES
+  WETSUIT
+  GOGGLES
+  HELMET
+  POWER_METER
+  HR_MONITOR
+  GPS_WATCH
+  OTHER
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+enum ResourceCategory {
+  DRILL
+  STRETCH
+  WARMUP
+  COOLDOWN
+  STRENGTH_EXERCISE
+  MOBILITY
+  RECOVERY
+  TECHNIQUE_VIDEO
+  TUTORIAL
+}
+
+enum ContentType {
+  VIDEO
+  IMAGE
+  TEXT
+  INTERACTIVE
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}

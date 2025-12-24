@@ -1,0 +1,88 @@
+# Production Docker Compose for Digital Ocean
+# Use with: docker-compose -f docker-compose.prod.yml up -d
+#
+# Note: For Digital Ocean App Platform, you can use managed databases
+# and deploy directly from GitHub. This file is for Droplet deployment.
+
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: triforce-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - STRAVA_CLIENT_ID=${STRAVA_CLIENT_ID}
+      - STRAVA_CLIENT_SECRET=${STRAVA_CLIENT_SECRET}
+      - STRAVA_REDIRECT_URI=${STRAVA_REDIRECT_URI}
+      - STRAVA_WEBHOOK_VERIFY_TOKEN=${STRAVA_WEBHOOK_VERIFY_TOKEN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - VITE_API_URL=${VITE_API_URL}
+    container_name: triforce-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# For self-hosted database (optional - prefer Digital Ocean Managed DB)
+#  postgres:
+#    image: postgres:16-alpine
+#    container_name: triforce-db
+#    restart: unless-stopped
+#    environment:
+#      POSTGRES_USER: ${DB_USER}
+#      POSTGRES_PASSWORD: ${DB_PASSWORD}
+#      POSTGRES_DB: triforce
+#    volumes:
+#      - postgres_data:/var/lib/postgresql/data
+#    healthcheck:
+#      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+
+#  redis:
+#    image: redis:7-alpine
+#    container_name: triforce-redis
+#    restart: unless-stopped
+#    command: redis-server --requirepass ${REDIS_PASSWORD}
+#    volumes:
+#      - redis_data:/data
+
+#volumes:
+#  postgres_data:
+#  redis_data:
