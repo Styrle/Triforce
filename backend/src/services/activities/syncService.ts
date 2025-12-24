@@ -3,7 +3,7 @@ import { stravaApiClient } from '../strava/apiClient';
 import { metricsCalculator } from '../metrics/calculator';
 import { pmcService } from '../metrics/pmcService';
 import { logger } from '../../utils/logger';
-import { StravaActivity } from '../../types';
+import { StravaActivity, LatLng } from '../../types';
 import { SportType } from '@prisma/client';
 
 interface SyncResult {
@@ -319,7 +319,7 @@ export class ActivitySyncService {
       const cadenceStream = streams.cadence?.data || [];
       const velocityStream = streams.velocity_smooth?.data || [];
       const altitudeStream = streams.altitude?.data || [];
-      const latlngStream = streams.latlng?.data || [];
+      const latlngStream: LatLng[] = streams.latlng?.data || [];
       const tempStream = streams.temp?.data || [];
 
       // Create activity records in batches

@@ -71,12 +71,28 @@ export interface StravaActivity {
   device_watts?: boolean;
 }
 
-export interface StravaStream {
+export interface StravaStream<T = number> {
   type: string;
-  data: number[];
+  data: T[];
   series_type: string;
   original_size: number;
   resolution: string;
+}
+
+export type LatLng = [number, number];
+
+export interface StravaStreamsResponse {
+  time?: StravaStream<number>;
+  heartrate?: StravaStream<number>;
+  watts?: StravaStream<number>;
+  cadence?: StravaStream<number>;
+  velocity_smooth?: StravaStream<number>;
+  altitude?: StravaStream<number>;
+  latlng?: StravaStream<LatLng>;
+  temp?: StravaStream<number>;
+  distance?: StravaStream<number>;
+  grade_smooth?: StravaStream<number>;
+  moving?: StravaStream<boolean>;
 }
 
 // Activity types

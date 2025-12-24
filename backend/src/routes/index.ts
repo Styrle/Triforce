@@ -5,6 +5,23 @@ import activitiesRoutes from './activities';
 
 const router = Router();
 
+// Root API info endpoint
+router.get('/', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      name: 'Triforce API',
+      version: '1.0.0',
+      endpoints: {
+        health: '/api/health',
+        auth: '/api/auth',
+        strava: '/api/strava',
+        activities: '/api/activities',
+      },
+    },
+  });
+});
+
 // Health check endpoint
 router.get('/health', (req, res) => {
   res.json({

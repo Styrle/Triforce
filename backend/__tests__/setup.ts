@@ -64,6 +64,6 @@ export function generateTestToken(user: { id: string; email: string }) {
   return jwt.sign(
     { userId: user.id, email: user.email },
     process.env.JWT_SECRET || 'test-secret',
-    { expiresIn: '1h' }
+    { expiresIn: '1h' } as { expiresIn: string }
   );
 }

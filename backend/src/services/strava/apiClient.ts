@@ -4,7 +4,7 @@ import { stravaOAuthService } from './oauthService';
 import { logger } from '../../utils/logger';
 import { AppError } from '../../middleware/errorHandler';
 import { retryWithBackoff, sleep } from '../../utils/helpers';
-import { StravaActivity, StravaStream } from '../../types';
+import { StravaActivity, StravaStreamsResponse } from '../../types';
 
 // Rate limiting: Strava allows 100 requests per 15 minutes, 1000 per day
 const RATE_LIMIT_DELAY = 1000; // 1 second between requests
@@ -127,7 +127,7 @@ export class StravaApiClient {
       'latlng',
       'temp',
     ]
-  ): Promise<Record<string, StravaStream>> {
+  ): Promise<StravaStreamsResponse> {
     const client = await this.createClient(userId);
     await this.rateLimit();
 

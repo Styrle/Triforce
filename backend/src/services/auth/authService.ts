@@ -137,9 +137,12 @@ export class AuthService {
       email: user.email,
     };
 
-    return jwt.sign(payload, config.jwt.secret, {
-      expiresIn: config.jwt.expiresIn,
-    });
+    // Using type assertion to handle strict SignOptions typing in newer @types/jsonwebtoken
+    return jwt.sign(
+      payload, 
+      config.jwt.secret as jwt.Secret,
+      { expiresIn: config.jwt.expiresIn } as jwt.SignOptions
+    );
   }
 
   /**
