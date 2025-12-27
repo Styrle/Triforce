@@ -2,6 +2,11 @@ import { Router } from 'express';
 import authRoutes from './auth';
 import stravaRoutes from './strava';
 import activitiesRoutes from './activities';
+import analyticsRoutes from './analytics';
+import strengthRoutes from './strength';
+import settingsRoutes from './settings';
+import profileRoutes from './profile';
+import gearRoutes from './gear';
 
 const router = Router();
 
@@ -17,6 +22,11 @@ router.get('/', (req, res) => {
         auth: '/api/auth',
         strava: '/api/strava',
         activities: '/api/activities',
+        analytics: '/api/analytics',
+        strength: '/api/strength',
+        settings: '/api/settings',
+        profile: '/api/profile',
+        gear: '/api/gear',
       },
     },
   });
@@ -38,11 +48,14 @@ router.get('/health', (req, res) => {
 router.use('/auth', authRoutes);
 router.use('/strava', stravaRoutes);
 router.use('/activities', activitiesRoutes);
+router.use('/analytics', analyticsRoutes);
+router.use('/strength', strengthRoutes);
+router.use('/settings', settingsRoutes);
+router.use('/profile', profileRoutes);
+router.use('/gear', gearRoutes);
 
 // TODO: Add more routes in subsequent phases
-// router.use('/analytics', analyticsRoutes);
 // router.use('/plans', plansRoutes);
-// router.use('/strength', strengthRoutes);
-// router.use('/settings', settingsRoutes);
+// router.use('/resources', resourcesRoutes);
 
 export default router;

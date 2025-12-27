@@ -296,6 +296,73 @@ model ActivityMetrics {
   createdAt DateTime @default(now())
 }
 
+// ============ PEAK PERFORMANCES ============
+
+model PeakPerformance {
+  id     String @id @default(cuid())
+  userId String
+
+  // What was achieved
+  sportType   SportType
+  metricType  PeakMetricType
+  value       Float
+  duration    Int?        // Duration in seconds (for duration-based peaks)
+  distance    Float?      // Distance in meters (for distance-based peaks)
+
+  // When & where
+  activityId  String?
+  achievedAt  DateTime
+
+  // Context
+  previousBest Float?      // Previous PR value
+  improvement  Float?      // Percentage improvement
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, sportType, metricType])
+  @@index([userId, achievedAt])
+}
+
+enum PeakMetricType {
+  // Power peaks
+  POWER_5S
+  POWER_10S
+  POWER_15S
+  POWER_30S
+  POWER_1MIN
+  POWER_2MIN
+  POWER_3MIN
+  POWER_5MIN
+  POWER_10MIN
+  POWER_20MIN
+  POWER_30MIN
+  POWER_60MIN
+  POWER_90MIN
+  POWER_120MIN
+
+  // Pace/Speed peaks
+  PACE_400M
+  PACE_1KM
+  PACE_1MILE
+  PACE_5KM
+  PACE_10KM
+  PACE_HALF_MARATHON
+  PACE_MARATHON
+
+  // Swimming
+  SWIM_100M
+  SWIM_200M
+  SWIM_400M
+  SWIM_1500M
+
+  // Other metrics
+  MAX_HR
+  LONGEST_RIDE
+  LONGEST_RUN
+  HIGHEST_TSS
+  BEST_EF
+}
+
 // ============ DAILY METRICS ============
 
 model DailyMetrics {
@@ -842,6 +909,7 @@ enum LiftType {
   FRONT_SQUAT
   DEADLIFT
   SUMO_DEADLIFT
+  ROMANIAN_DEADLIFT
   POWER_CLEAN
   BENCH_PRESS
   INCLINE_BENCH
@@ -851,6 +919,7 @@ enum LiftType {
   PULL_UP
   CHIN_UP
   PENDLAY_ROW
+  BENT_OVER_ROW
 }
 
 enum MuscleGroup {

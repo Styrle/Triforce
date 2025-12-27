@@ -1,7 +1,8 @@
 import { Router, Response, Request } from 'express';
 import { stravaOAuthService } from '../services/strava/oauthService';
+import { stravaWebhookService } from '../services/strava/webhookService';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
-import { asyncHandler, AppError } from '../middleware/errorHandler';
+import { asyncHandler, AppError, createValidationError } from '../middleware/errorHandler';
 import { generateRandomString } from '../utils/helpers';
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -196,5 +197,51 @@ router.get('/webhook', (req: Request, res: Response) => {
     res.status(403).send('Verification failed');
   }
 });
+
+/**
+ * POST /api/strava/webhook/subscribe
+ * Create webhook subscription with Strava
+ * Note: In production, restrict this to admin users
+ */
+router.post(
+  '/webhook/subscribe',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { callbackUrl } = req.body;
+
+    if (!callbackUrl) {
+      throw createValidationError('callbackUrl is required');
+    }
+
+    const result = await stravaWebhookService.createSubscription(callbackUrl);
+    res.json({ success: true, data: result });
+  })
+);
+
+/**
+ * GET /api/strava/webhook/subscription
+ * View current webhook subscription
+ */
+router.get(
+  '/webhook/subscription',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const subscription = await stravaWebhookService.viewSubscription();
+    res.json({ success: true, data: subscription });
+  })
+);
+
+/**
+ * DELETE /api/strava/webhook/subscription/:id
+ * Delete webhook subscription
+ */
+router.delete(
+  '/webhook/subscription/:id',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    await stravaWebhookService.deleteSubscription(parseInt(req.params.id, 10));
+    res.json({ success: true, data: { message: 'Subscription deleted' } });
+  })
+);
 
 export default router;
