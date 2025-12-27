@@ -265,6 +265,94 @@ export class OneRepMaxCalculator {
       addedWeight1RM: Math.round(addedWeight1RM),
     };
   }
+
+  /**
+   * Calculate Wilks Score for powerlifting comparison
+   * Allows comparison of strength across different bodyweights
+   *
+   * @param total - Sum of best squat, bench, and deadlift (kg)
+   * @param bodyweight - Athlete bodyweight (kg)
+   * @param sex - 'MALE' or 'FEMALE'
+   * @returns Wilks score (higher is better, elite >400)
+   */
+  calculateWilks(total: number, bodyweight: number, sex: 'MALE' | 'FEMALE'): number {
+    if (total <= 0 || bodyweight <= 0) {
+      throw new Error('Total and bodyweight must be positive');
+    }
+
+    // Clamp bodyweight to valid range
+    const bw = Math.min(Math.max(bodyweight, 40), 200);
+
+    // Wilks coefficients (2020 updated version)
+    const maleCoeff = [-216.0475144, 16.2606339, -0.002388645, -0.00113732, 7.01863e-6, -1.291e-8];
+    const femaleCoeff = [594.31747775582, -27.23842536447, 0.82112226871, -0.00930733913, 4.731582e-5, -9.054e-8];
+
+    const coeff = sex === 'MALE' ? maleCoeff : femaleCoeff;
+
+    const denominator =
+      coeff[0] +
+      coeff[1] * bw +
+      coeff[2] * Math.pow(bw, 2) +
+      coeff[3] * Math.pow(bw, 3) +
+      coeff[4] * Math.pow(bw, 4) +
+      coeff[5] * Math.pow(bw, 5);
+
+    return Math.round((total * 500 / denominator) * 100) / 100;
+  }
+
+  /**
+   * Calculate DOTS Score (modern Wilks alternative)
+   * More accurate for extreme bodyweights
+   *
+   * @param total - Sum of best squat, bench, and deadlift (kg)
+   * @param bodyweight - Athlete bodyweight (kg)
+   * @param sex - 'MALE' or 'FEMALE'
+   * @returns DOTS score
+   */
+  calculateDOTS(total: number, bodyweight: number, sex: 'MALE' | 'FEMALE'): number {
+    if (total <= 0 || bodyweight <= 0) {
+      throw new Error('Total and bodyweight must be positive');
+    }
+
+    // DOTS coefficients
+    const maleCoeff = { a: -307.75076, b: 24.0900756, c: -0.1918759221, d: 0.0007391293, e: -0.000001093 };
+    const femaleCoeff = { a: -57.96288, b: 13.6175032, c: -0.1126655495, d: 0.0005158568, e: -0.0000010706 };
+
+    const c = sex === 'MALE' ? maleCoeff : femaleCoeff;
+    const bw = bodyweight;
+
+    const denominator =
+      c.a +
+      c.b * bw +
+      c.c * Math.pow(bw, 2) +
+      c.d * Math.pow(bw, 3) +
+      c.e * Math.pow(bw, 4);
+
+    return Math.round((total * 500 / denominator) * 100) / 100;
+  }
+
+  /**
+   * Get strength classification based on Wilks score
+   */
+  classifyWilks(wilksScore: number): string {
+    if (wilksScore >= 500) return 'Elite International';
+    if (wilksScore >= 450) return 'Elite National';
+    if (wilksScore >= 400) return 'Elite';
+    if (wilksScore >= 350) return 'Advanced';
+    if (wilksScore >= 300) return 'Intermediate';
+    if (wilksScore >= 250) return 'Novice';
+    if (wilksScore >= 200) return 'Beginner';
+    return 'Untrained';
+  }
+
+  /**
+   * Calculate Mayhew formula for 1RM
+   * 1RM = (100 × weight) / (52.2 + 41.9 × e^(-0.055 × reps))
+   */
+  mayhew(weight: number, reps: number): number {
+    if (reps === 1) return weight;
+    return (100 * weight) / (52.2 + 41.9 * Math.exp(-0.055 * reps));
+  }
 }
 
 // Export singleton instance

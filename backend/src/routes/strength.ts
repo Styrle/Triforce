@@ -214,38 +214,51 @@ router.post(
 
 /**
  * GET /api/strength/muscles
- * Get muscle group analysis
+ * GET /api/strength/muscle-analysis (alias)
+ * Get muscle group analysis - Symmetric Strength style
  */
-router.get(
-  '/muscles',
-  authMiddleware,
-  asyncHandler(async (req: AuthRequest, res: Response) => {
-    const profile = await strengthService.getStrengthProfile(req.user!.userId);
+const muscleAnalysisHandler = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const profile = await strengthService.getStrengthProfile(req.user!.userId);
 
-    if (!profile) {
-      res.json({
-        success: true,
-        data: {
-          muscleScores: [],
-          imbalances: [],
-          recommendations: ['Start recording lifts to see your muscle analysis.'],
-          symmetryScore: null,
-        },
-      });
-      return;
-    }
-
+  if (!profile) {
     res.json({
       success: true,
       data: {
-        muscleScores: profile.muscleScores,
-        imbalances: profile.imbalances,
-        recommendations: profile.recommendations,
-        symmetryScore: profile.symmetryScore,
+        muscleScores: [],
+        imbalances: [],
+        recommendations: ['Start recording lifts to see your muscle analysis.'],
+        symmetryScore: null,
+        balanceScore: null,
+        weakPoints: [],
       },
     });
-  })
-);
+    return;
+  }
+
+  // Transform imbalances to weak points for frontend
+  const weakPoints = (profile.imbalances || [])
+    .filter((i: any) => i.type === 'weak')
+    .map((i: any) => ({
+      muscleGroup: i.muscleGroup,
+      deviation: Math.abs(i.deviation),
+      recommendation: i.description,
+    }));
+
+  res.json({
+    success: true,
+    data: {
+      muscleScores: profile.muscleScores || [],
+      imbalances: profile.imbalances || [],
+      recommendations: profile.recommendations || [],
+      symmetryScore: profile.symmetryScore,
+      balanceScore: profile.symmetryScore, // Alias for frontend compatibility
+      weakPoints,
+    },
+  });
+});
+
+router.get('/muscles', authMiddleware, muscleAnalysisHandler);
+router.get('/muscle-analysis', authMiddleware, muscleAnalysisHandler);
 
 /**
  * GET /api/strength/progress/:liftType

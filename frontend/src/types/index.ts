@@ -59,9 +59,69 @@ export interface Activity {
 export interface PMCData {
   date: string;
   tss: number;
+  ctl: number | null;
+  atl: number | null;
+  tsb: number | null;
+  rampRate?: number | null;
+}
+
+export interface PMCProjection {
+  date: string;
+  projectedTss: number;
+  projectedCtl: number;
+  projectedAtl: number;
+  projectedTsb: number;
+}
+
+export interface PMCResponse {
+  history: PMCData[];
+  projections: PMCProjection[];
+  current: PMCData | null;
+}
+
+// Tri-Score types
+export interface SportScore {
+  score: number;
+  trend: number;
+  weeklyHours: number;
+  weeklyTss: number;
+  activityCount: number;
+}
+
+export interface TriScoreData {
+  overall: number;
+  overallTrend: number;
+  swim: SportScore;
+  bike: SportScore;
+  run: SportScore;
+  strength: SportScore;
+  balance: {
+    balanced: boolean;
+    balanceScore: number;
+    weakest: string;
+    strongest: string;
+    recommendations: string[];
+  };
+  fitness: {
+    ctl: number;
+    atl: number;
+    tsb: number;
+    rampRate: number;
+    fitnessLevel: string;
+  };
+  lastUpdated: string;
+}
+
+// Dashboard summary types
+export interface DashboardSummary {
+  triScore: number;
+  triScoreTrend: number;
+  fitnessLevel: string;
   ctl: number;
-  atl: number;
   tsb: number;
+  weeklyHours: number;
+  weeklyTss: number;
+  streak: number;
 }
 
 // Strava types
@@ -92,4 +152,146 @@ export interface AthleteProfile {
   css: number | null;
   maxHr: number | null;
   restingHr: number | null;
+}
+
+// Training Plan types
+export type PlanType =
+  | 'SPRINT_TRI'
+  | 'OLYMPIC_TRI'
+  | 'HALF_IRONMAN'
+  | 'IRONMAN'
+  | 'MARATHON'
+  | 'HALF_MARATHON'
+  | 'CENTURY'
+  | 'GENERAL_FITNESS'
+  | 'CUSTOM';
+
+export type PlanStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED';
+
+export type Periodization = 'LINEAR' | 'BLOCK' | 'POLARIZED' | 'PYRAMIDAL' | 'REVERSE_LINEAR';
+
+export type PhaseType = 'BASE' | 'BUILD' | 'PEAK' | 'RACE' | 'RECOVERY' | 'TRANSITION';
+
+export type WorkoutStatus = 'PLANNED' | 'COMPLETED' | 'PARTIAL' | 'SKIPPED' | 'MOVED';
+
+export interface TrainingPlan {
+  id: string;
+  userId: string;
+  name: string;
+  description: string | null;
+  planType: PlanType;
+  targetEvent: string | null;
+  startDate: string;
+  endDate: string;
+  weeksTotal: number;
+  weeklyHoursMin: number;
+  weeklyHoursMax: number;
+  periodization: Periodization;
+  status: PlanStatus;
+  currentWeek: number;
+  createdAt: string;
+  updatedAt: string;
+  phases?: PlanPhase[];
+  weeks?: PlanWeek[];
+}
+
+export interface PlanPhase {
+  id: string;
+  planId: string;
+  name: string;
+  phaseType: PhaseType;
+  weekStart: number;
+  weekEnd: number;
+  focus: string[];
+  targetIntensityDistribution: Record<string, number> | null;
+}
+
+export interface PlanWeek {
+  id: string;
+  planId: string;
+  phaseId: string | null;
+  weekNumber: number;
+  startDate: string;
+  endDate: string;
+  targetHours: number;
+  targetTss: number;
+  isRecoveryWeek: boolean;
+  focus: string | null;
+  notes: string | null;
+  workouts?: PlannedWorkout[];
+}
+
+export interface PlannedWorkout {
+  id: string;
+  planId: string;
+  weekId: string | null;
+  userId: string;
+  name: string;
+  description: string | null;
+  sportType: SportType;
+  workoutType: string | null;
+  scheduledDate: string;
+  timeOfDay: string | null;
+  targetDuration: number | null;
+  targetDistance: number | null;
+  targetTss: number | null;
+  targetIntensity: string | null;
+  status: WorkoutStatus;
+  completedActivityId: string | null;
+  notes: string | null;
+  plan?: { id: string; name: string };
+}
+
+export interface WorkoutTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  description: string | null;
+  sportType: SportType;
+  workoutType: string | null;
+  estimatedDuration: number | null;
+  estimatedDistance: number | null;
+  estimatedTss: number | null;
+  category: string | null;
+  difficulty: string | null;
+  tags: string[];
+  isPublic: boolean;
+  isStructured: boolean;
+  structure: Record<string, unknown> | null;
+  usageCount: number;
+}
+
+export interface CreatePlanInput {
+  name: string;
+  planType: PlanType;
+  targetDate: string;
+  weeksAvailable: number;
+  weeklyHoursMin: number;
+  weeklyHoursMax: number;
+  periodization?: Periodization;
+  description?: string;
+  targetEvent?: string;
+  currentFitness?: number;
+}
+
+export interface PlanComplianceMetrics {
+  planId: string;
+  overallCompliance: number;
+  workoutsPlanned: number;
+  workoutsCompleted: number;
+  workoutsPartial: number;
+  workoutsSkipped: number;
+  currentStreak: number;
+  longestStreak: number;
+  weeklyCompliance: Array<{
+    weekNumber: number;
+    compliance: number;
+    completedCount: number;
+    plannedCount: number;
+  }>;
+  sportBreakdown: Record<SportType, {
+    planned: number;
+    completed: number;
+    compliance: number;
+  }>;
 }

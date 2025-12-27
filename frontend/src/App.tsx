@@ -11,6 +11,12 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Settings } from './pages/Settings';
 import { NotFound } from './pages/NotFound';
+import { TrainingPlans } from './pages/TrainingPlans';
+import { PlanBuilder } from './pages/PlanBuilder';
+import { PlanDetail } from './pages/PlanDetail';
+import { Activities } from './pages/Activities';
+import { Analytics } from './pages/Analytics';
+import { Strength } from './pages/Strength';
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -82,13 +88,13 @@ function App() {
         }
       >
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/activities" element={<Activities />} />
+        <Route path="/analytics" element={<Analytics />} />
+        <Route path="/plans" element={<TrainingPlans />} />
+        <Route path="/plans/new" element={<PlanBuilder />} />
+        <Route path="/plans/:id" element={<PlanDetail />} />
+        <Route path="/strength" element={<Strength />} />
         <Route path="/settings" element={<Settings />} />
-        {/* TODO: Add more routes in Phase 2+ */}
-        {/* <Route path="/activities" element={<Activities />} /> */}
-        {/* <Route path="/activities/:id" element={<ActivityDetail />} /> */}
-        {/* <Route path="/analytics" element={<Analytics />} /> */}
-        {/* <Route path="/plans" element={<Plans />} /> */}
-        {/* <Route path="/strength" element={<Strength />} /> */}
       </Route>
 
       {/* Redirects */}

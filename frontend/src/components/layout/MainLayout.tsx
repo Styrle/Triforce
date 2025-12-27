@@ -4,7 +4,7 @@ import {
   LayoutDashboard,
   Activity,
   LineChart,
-  Calendar,
+  ClipboardList,
   Dumbbell,
   Settings,
   LogOut,
@@ -15,10 +15,10 @@ import { useState } from 'react';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/activities', label: 'Activities', icon: Activity, disabled: true },
-  { path: '/analytics', label: 'Analytics', icon: LineChart, disabled: true },
-  { path: '/plans', label: 'Plans', icon: Calendar, disabled: true },
-  { path: '/strength', label: 'Strength', icon: Dumbbell, disabled: true },
+  { path: '/activities', label: 'Activities', icon: Activity },
+  { path: '/analytics', label: 'Analytics', icon: LineChart },
+  { path: '/plans', label: 'Plans', icon: ClipboardList },
+  { path: '/strength', label: 'Strength', icon: Dumbbell },
   { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -72,22 +72,8 @@ export function MainLayout() {
         <nav className="p-4 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-
-            if (item.disabled) {
-              return (
-                <div
-                  key={item.path}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-500 cursor-not-allowed"
-                >
-                  <Icon className="w-5 h-5" />
-                  <span>{item.label}</span>
-                  <span className="ml-auto text-xs bg-gray-800 px-2 py-0.5 rounded">
-                    Soon
-                  </span>
-                </div>
-              );
-            }
+            const isActive = location.pathname === item.path ||
+              (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
 
             return (
               <Link

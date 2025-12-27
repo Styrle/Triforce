@@ -6,7 +6,26 @@
       "Bash(mkdir:*)",
       "Bash(npm test:*)",
       "Bash(npx prisma migrate dev:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(netstat:*)",
+      "Bash(lsof:*)",
+      "Bash(cmd.exe /c \"netstat -ano | findstr :3001\")",
+      "Bash(cmd.exe /c \"taskkill /PID 42200 /F\")",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_install",
+      "Bash(npx vite:*)",
+      "Bash(timeout 10 npx vite:*)",
+      "Bash(curl:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(node:*)",
+      "Bash(chmod:*)",
+      "Bash(bash:*)",
+      "WebFetch(domain:symmetricstrength.com)"
     ]
   }
 }

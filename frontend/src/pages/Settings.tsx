@@ -2,14 +2,101 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/authStore';
-import { apiHelpers } from '../services/api';
-import { Loader2, Link as LinkIcon, Unlink, CheckCircle, AlertCircle } from 'lucide-react';
+import { api, apiHelpers } from '../services/api';
+import { Loader2, Link as LinkIcon, Unlink, CheckCircle, AlertCircle, Save, User } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+interface AthleteProfile {
+  id: string;
+  dateOfBirth: string | null;
+  sex: 'MALE' | 'FEMALE' | null;
+  height: number | null;
+  weight: number | null;
+  ftp: number | null;
+  lthr: number | null;
+  thresholdPace: number | null;
+  css: number | null;
+  maxHr: number | null;
+  restingHr: number | null;
+}
 
 export function Settings() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Form state for athlete profile
+  const [profileForm, setProfileForm] = useState({
+    sex: '' as 'MALE' | 'FEMALE' | '',
+    weight: '',
+    height: '',
+    dateOfBirth: '',
+    ftp: '',
+    lthr: '',
+    thresholdPace: '',
+    css: '',
+    maxHr: '',
+    restingHr: '',
+  });
+
+  // Fetch athlete profile
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['athlete-profile'],
+    queryFn: async () => {
+      const response = await api.get<{ success: boolean; data: AthleteProfile }>('/profile');
+      return response.data.data;
+    },
+  });
+
+  // Update form when profile is loaded
+  useEffect(() => {
+    if (profile) {
+      setProfileForm({
+        sex: profile.sex || '',
+        weight: profile.weight?.toString() || '',
+        height: profile.height?.toString() || '',
+        dateOfBirth: profile.dateOfBirth?.split('T')[0] || '',
+        ftp: profile.ftp?.toString() || '',
+        lthr: profile.lthr?.toString() || '',
+        thresholdPace: profile.thresholdPace?.toString() || '',
+        css: profile.css?.toString() || '',
+        maxHr: profile.maxHr?.toString() || '',
+        restingHr: profile.restingHr?.toString() || '',
+      });
+    }
+  }, [profile]);
+
+  // Update profile mutation
+  const updateProfile = useMutation({
+    mutationFn: async (data: Partial<AthleteProfile>) => {
+      const response = await api.put('/profile', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('Profile updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['athlete-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['strength-standards'] });
+    },
+    onError: () => {
+      toast.error('Failed to update profile');
+    },
+  });
+
+  const handleProfileSave = () => {
+    const data: Partial<AthleteProfile> = {};
+    if (profileForm.sex) data.sex = profileForm.sex as 'MALE' | 'FEMALE';
+    if (profileForm.weight) data.weight = parseFloat(profileForm.weight);
+    if (profileForm.height) data.height = parseFloat(profileForm.height);
+    if (profileForm.dateOfBirth) data.dateOfBirth = profileForm.dateOfBirth;
+    if (profileForm.ftp) data.ftp = parseInt(profileForm.ftp);
+    if (profileForm.lthr) data.lthr = parseInt(profileForm.lthr);
+    if (profileForm.thresholdPace) data.thresholdPace = parseFloat(profileForm.thresholdPace);
+    if (profileForm.css) data.css = parseFloat(profileForm.css);
+    if (profileForm.maxHr) data.maxHr = parseInt(profileForm.maxHr);
+    if (profileForm.restingHr) data.restingHr = parseInt(profileForm.restingHr);
+
+    updateProfile.mutate(data);
+  };
 
   // Check for Strava callback status
   useEffect(() => {
@@ -94,9 +181,86 @@ export function Settings() {
               />
             </div>
           </div>
-          <div className="pt-2">
-            <button className="btn-primary">Save Changes</button>
-          </div>
+        </div>
+      </div>
+
+      {/* Physical Profile - Important for Strength Standards */}
+      <div className="card">
+        <div className="card-header flex items-center gap-2">
+          <User className="w-5 h-5 text-gray-600" />
+          <h2 className="font-semibold">Physical Profile</h2>
+        </div>
+        <div className="card-body space-y-4">
+          {profileLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 text-primary-500 animate-spin" />
+            </div>
+          ) : (
+            <>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                <AlertCircle className="w-4 h-4 inline mr-1" />
+                Your bodyweight and sex are used to calculate personalized strength standards and Wilks/DOTS scores.
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Sex</label>
+                  <select
+                    value={profileForm.sex}
+                    onChange={(e) => setProfileForm({ ...profileForm, sex: e.target.value as 'MALE' | 'FEMALE' | '' })}
+                    className="input"
+                  >
+                    <option value="">Select...</option>
+                    <option value="MALE">Male</option>
+                    <option value="FEMALE">Female</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Bodyweight (kg)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={profileForm.weight}
+                    onChange={(e) => setProfileForm({ ...profileForm, weight: e.target.value })}
+                    className="input"
+                    placeholder="75"
+                  />
+                </div>
+                <div>
+                  <label className="label">Height (cm)</label>
+                  <input
+                    type="number"
+                    value={profileForm.height}
+                    onChange={(e) => setProfileForm({ ...profileForm, height: e.target.value })}
+                    className="input"
+                    placeholder="175"
+                  />
+                </div>
+                <div>
+                  <label className="label">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={profileForm.dateOfBirth}
+                    onChange={(e) => setProfileForm({ ...profileForm, dateOfBirth: e.target.value })}
+                    className="input"
+                  />
+                </div>
+              </div>
+              <div className="pt-2">
+                <button
+                  onClick={handleProfileSave}
+                  disabled={updateProfile.isPending}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  {updateProfile.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  Save Physical Profile
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -173,34 +337,102 @@ export function Settings() {
         </div>
       </div>
 
-      {/* Training Zones (placeholder) */}
+      {/* Training Zones */}
       <div className="card">
         <div className="card-header">
           <h2 className="font-semibold">Training Zones</h2>
         </div>
         <div className="card-body">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="label">FTP (watts)</label>
-              <input type="number" className="input" placeholder="250" />
+          {profileLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 text-primary-500 animate-spin" />
             </div>
-            <div>
-              <label className="label">LTHR (bpm)</label>
-              <input type="number" className="input" placeholder="170" />
-            </div>
-            <div>
-              <label className="label">Threshold Pace (min/km)</label>
-              <input type="text" className="input" placeholder="4:30" />
-            </div>
-            <div>
-              <label className="label">CSS (min/100m)</label>
-              <input type="text" className="input" placeholder="1:45" />
-            </div>
-          </div>
-          <p className="text-sm text-gray-500 mt-4">
-            <AlertCircle className="w-4 h-4 inline mr-1" />
-            These values will be auto-calculated from your activities in Phase 3.
-          </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">FTP (watts)</label>
+                  <input
+                    type="number"
+                    value={profileForm.ftp}
+                    onChange={(e) => setProfileForm({ ...profileForm, ftp: e.target.value })}
+                    className="input"
+                    placeholder="250"
+                  />
+                </div>
+                <div>
+                  <label className="label">LTHR (bpm)</label>
+                  <input
+                    type="number"
+                    value={profileForm.lthr}
+                    onChange={(e) => setProfileForm({ ...profileForm, lthr: e.target.value })}
+                    className="input"
+                    placeholder="170"
+                  />
+                </div>
+                <div>
+                  <label className="label">Threshold Pace (m/s)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={profileForm.thresholdPace}
+                    onChange={(e) => setProfileForm({ ...profileForm, thresholdPace: e.target.value })}
+                    className="input"
+                    placeholder="3.5"
+                  />
+                </div>
+                <div>
+                  <label className="label">CSS (m/s)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={profileForm.css}
+                    onChange={(e) => setProfileForm({ ...profileForm, css: e.target.value })}
+                    className="input"
+                    placeholder="1.3"
+                  />
+                </div>
+                <div>
+                  <label className="label">Max HR (bpm)</label>
+                  <input
+                    type="number"
+                    value={profileForm.maxHr}
+                    onChange={(e) => setProfileForm({ ...profileForm, maxHr: e.target.value })}
+                    className="input"
+                    placeholder="190"
+                  />
+                </div>
+                <div>
+                  <label className="label">Resting HR (bpm)</label>
+                  <input
+                    type="number"
+                    value={profileForm.restingHr}
+                    onChange={(e) => setProfileForm({ ...profileForm, restingHr: e.target.value })}
+                    className="input"
+                    placeholder="55"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-4 pt-4">
+                <button
+                  onClick={handleProfileSave}
+                  disabled={updateProfile.isPending}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  {updateProfile.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  Save Training Zones
+                </button>
+              </div>
+              <p className="text-sm text-gray-500 mt-4">
+                <AlertCircle className="w-4 h-4 inline mr-1" />
+                These values are used to calculate your training zones and TSS metrics.
+              </p>
+            </>
+          )}
         </div>
       </div>
 

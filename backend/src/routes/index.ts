@@ -7,6 +7,10 @@ import strengthRoutes from './strength';
 import settingsRoutes from './settings';
 import profileRoutes from './profile';
 import gearRoutes from './gear';
+import plansRoutes from './plans';
+import resourcesRoutes from './resources';
+import nutritionRoutes from './nutrition';
+import importRoutes from './import';
 
 const router = Router();
 
@@ -27,6 +31,10 @@ router.get('/', (req, res) => {
         settings: '/api/settings',
         profile: '/api/profile',
         gear: '/api/gear',
+        plans: '/api/plans',
+        resources: '/api/resources',
+        nutrition: '/api/nutrition',
+        import: '/api/import',
       },
     },
   });
@@ -53,9 +61,9 @@ router.use('/strength', strengthRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/profile', profileRoutes);
 router.use('/gear', gearRoutes);
-
-// TODO: Add more routes in subsequent phases
-// router.use('/plans', plansRoutes);
-// router.use('/resources', resourcesRoutes);
+router.use('/plans', plansRoutes);
+router.use('/resources', resourcesRoutes);
+router.use('/nutrition', nutritionRoutes);
+router.use('/import', importRoutes);
 
 export default router;
