@@ -905,42 +905,90 @@ enum WorkoutType {
 }
 
 enum LiftType {
+  // Squat Pattern (existing)
   BACK_SQUAT
   FRONT_SQUAT
+  // Squat Pattern (new)
+  ZERCHER_SQUAT
+  SAFETY_BAR_SQUAT
+  LEG_PRESS
+  HACK_SQUAT
+  GOBLET_SQUAT
+  BULGARIAN_SPLIT_SQUAT
+
+  // Floor Pull Pattern (existing)
   DEADLIFT
   SUMO_DEADLIFT
   ROMANIAN_DEADLIFT
   POWER_CLEAN
+  // Floor Pull Pattern (new)
+  TRAP_BAR_DEADLIFT
+  STIFF_LEG_DEADLIFT
+  DEFICIT_DEADLIFT
+  BLOCK_PULL
+  HIP_THRUST
+  CLEAN
+  SNATCH
+
+  // Horizontal Press Pattern (existing)
   BENCH_PRESS
   INCLINE_BENCH
   DIP
+  // Horizontal Press Pattern (new)
+  CLOSE_GRIP_BENCH
+  DUMBBELL_BENCH_PRESS
+  DUMBBELL_INCLINE_PRESS
+  FLOOR_PRESS
+  WEIGHTED_DIP
+
+  // Vertical Press Pattern (existing)
   OVERHEAD_PRESS
   PUSH_PRESS
+  // Vertical Press Pattern (new)
+  SEATED_PRESS
+  DUMBBELL_SHOULDER_PRESS
+  ARNOLD_PRESS
+  BEHIND_NECK_PRESS
+  Z_PRESS
+
+  // Pull Pattern (existing)
   PULL_UP
   CHIN_UP
   PENDLAY_ROW
   BENT_OVER_ROW
+  // Pull Pattern (new)
+  LAT_PULLDOWN
+  BARBELL_ROW
+  DUMBBELL_ROW
+  CABLE_ROW
+  T_BAR_ROW
+  BARBELL_CURL
 }
 
 enum MuscleGroup {
+  // Front View
   CHEST
   ANTERIOR_DELTS
   LATERAL_DELTS
-  TRICEPS
-  LATS
-  REAR_DELTS
   BICEPS
-  TRAPS
+  FOREARMS
   ABDOMINALS
   OBLIQUES
-  SPINAL_ERECTORS
   QUADS
-  GLUTES
-  HAMSTRINGS
   HIP_FLEXORS
   ADDUCTORS
+  TIBIALIS
+
+  // Back View
+  TRAPS
+  REAR_DELTS
+  RHOMBOIDS
+  LATS
+  TRICEPS
+  SPINAL_ERECTORS
+  GLUTES
+  HAMSTRINGS
   CALVES
-  FOREARMS
 }
 
 enum PlanType {

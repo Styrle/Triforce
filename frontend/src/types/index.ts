@@ -1,3 +1,6 @@
+// Export strength types
+export * from './strength';
+
 // User types
 export interface User {
   id: string;

@@ -121,11 +121,27 @@ export class StrengthService {
       };
 
       const categoryScores = {
-        squat: getCategoryBest(['BACK_SQUAT', 'FRONT_SQUAT']),
-        floorPull: getCategoryBest(['DEADLIFT', 'SUMO_DEADLIFT', 'ROMANIAN_DEADLIFT', 'POWER_CLEAN']),
-        horizPress: getCategoryBest(['BENCH_PRESS', 'INCLINE_BENCH', 'DIP']),
-        vertPress: getCategoryBest(['OVERHEAD_PRESS', 'PUSH_PRESS']),
-        pull: getCategoryBest(['PULL_UP', 'CHIN_UP', 'PENDLAY_ROW', 'BENT_OVER_ROW']),
+        squat: getCategoryBest([
+          'BACK_SQUAT', 'FRONT_SQUAT', 'ZERCHER_SQUAT', 'SAFETY_BAR_SQUAT',
+          'LEG_PRESS', 'HACK_SQUAT', 'GOBLET_SQUAT', 'BULGARIAN_SPLIT_SQUAT',
+        ]),
+        floorPull: getCategoryBest([
+          'DEADLIFT', 'SUMO_DEADLIFT', 'ROMANIAN_DEADLIFT', 'TRAP_BAR_DEADLIFT',
+          'STIFF_LEG_DEADLIFT', 'DEFICIT_DEADLIFT', 'BLOCK_PULL', 'POWER_CLEAN',
+          'CLEAN', 'SNATCH', 'HIP_THRUST',
+        ]),
+        horizPress: getCategoryBest([
+          'BENCH_PRESS', 'INCLINE_BENCH', 'CLOSE_GRIP_BENCH', 'DUMBBELL_BENCH_PRESS',
+          'DUMBBELL_INCLINE_PRESS', 'FLOOR_PRESS', 'DIP', 'WEIGHTED_DIP',
+        ]),
+        vertPress: getCategoryBest([
+          'OVERHEAD_PRESS', 'PUSH_PRESS', 'SEATED_PRESS', 'DUMBBELL_SHOULDER_PRESS',
+          'ARNOLD_PRESS', 'BEHIND_NECK_PRESS', 'Z_PRESS',
+        ]),
+        pull: getCategoryBest([
+          'PULL_UP', 'CHIN_UP', 'PENDLAY_ROW', 'BENT_OVER_ROW', 'LAT_PULLDOWN',
+          'BARBELL_ROW', 'DUMBBELL_ROW', 'CABLE_ROW', 'T_BAR_ROW', 'BARBELL_CURL',
+        ]),
       };
 
       // Calculate overall scores
@@ -301,16 +317,27 @@ export class StrengthService {
         return best;
       };
 
-      const squatScore = getCategoryBest(['BACK_SQUAT', 'FRONT_SQUAT']);
-      const floorPullScore = getCategoryBest([
-        'DEADLIFT',
-        'SUMO_DEADLIFT',
-        'ROMANIAN_DEADLIFT',
-        'POWER_CLEAN',
+      const squatScore = getCategoryBest([
+        'BACK_SQUAT', 'FRONT_SQUAT', 'ZERCHER_SQUAT', 'SAFETY_BAR_SQUAT',
+        'LEG_PRESS', 'HACK_SQUAT', 'GOBLET_SQUAT', 'BULGARIAN_SPLIT_SQUAT',
       ]);
-      const horizPressScore = getCategoryBest(['BENCH_PRESS', 'INCLINE_BENCH', 'DIP']);
-      const vertPressScore = getCategoryBest(['OVERHEAD_PRESS', 'PUSH_PRESS']);
-      const pullScore = getCategoryBest(['PULL_UP', 'CHIN_UP', 'PENDLAY_ROW', 'BENT_OVER_ROW']);
+      const floorPullScore = getCategoryBest([
+        'DEADLIFT', 'SUMO_DEADLIFT', 'ROMANIAN_DEADLIFT', 'TRAP_BAR_DEADLIFT',
+        'STIFF_LEG_DEADLIFT', 'DEFICIT_DEADLIFT', 'BLOCK_PULL', 'POWER_CLEAN',
+        'CLEAN', 'SNATCH', 'HIP_THRUST',
+      ]);
+      const horizPressScore = getCategoryBest([
+        'BENCH_PRESS', 'INCLINE_BENCH', 'CLOSE_GRIP_BENCH', 'DUMBBELL_BENCH_PRESS',
+        'DUMBBELL_INCLINE_PRESS', 'FLOOR_PRESS', 'DIP', 'WEIGHTED_DIP',
+      ]);
+      const vertPressScore = getCategoryBest([
+        'OVERHEAD_PRESS', 'PUSH_PRESS', 'SEATED_PRESS', 'DUMBBELL_SHOULDER_PRESS',
+        'ARNOLD_PRESS', 'BEHIND_NECK_PRESS', 'Z_PRESS',
+      ]);
+      const pullScore = getCategoryBest([
+        'PULL_UP', 'CHIN_UP', 'PENDLAY_ROW', 'BENT_OVER_ROW', 'LAT_PULLDOWN',
+        'BARBELL_ROW', 'DUMBBELL_ROW', 'CABLE_ROW', 'T_BAR_ROW', 'BARBELL_CURL',
+      ]);
 
       // Calculate muscle group scores
       const liftScores = Array.from(bestLifts.values()).map((l) => ({

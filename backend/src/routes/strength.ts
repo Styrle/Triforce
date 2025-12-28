@@ -11,6 +11,7 @@ import {
   strengthStandardsService,
   muscleAnalysisService,
 } from '../services/strength';
+import { CLASSIFICATION_COLORS } from '../services/strength/strengthStandards';
 
 const router = Router();
 
@@ -28,28 +29,62 @@ const validateRequest = (req: AuthRequest, res: Response, next: () => void) => {
   next();
 };
 
-// Valid lift types for validation
+// Valid lift types for validation (44 total)
 const LIFT_TYPES: LiftType[] = [
+  // Squat Pattern
   'BACK_SQUAT',
   'FRONT_SQUAT',
+  'ZERCHER_SQUAT',
+  'SAFETY_BAR_SQUAT',
+  'LEG_PRESS',
+  'HACK_SQUAT',
+  'GOBLET_SQUAT',
+  'BULGARIAN_SPLIT_SQUAT',
+  // Floor Pull Pattern
   'DEADLIFT',
   'SUMO_DEADLIFT',
   'ROMANIAN_DEADLIFT',
+  'TRAP_BAR_DEADLIFT',
+  'STIFF_LEG_DEADLIFT',
+  'DEFICIT_DEADLIFT',
+  'BLOCK_PULL',
   'POWER_CLEAN',
+  'CLEAN',
+  'SNATCH',
+  'HIP_THRUST',
+  // Horizontal Press Pattern
   'BENCH_PRESS',
   'INCLINE_BENCH',
+  'CLOSE_GRIP_BENCH',
+  'DUMBBELL_BENCH_PRESS',
+  'DUMBBELL_INCLINE_PRESS',
+  'FLOOR_PRESS',
   'DIP',
+  'WEIGHTED_DIP',
+  // Vertical Press Pattern
   'OVERHEAD_PRESS',
   'PUSH_PRESS',
+  'SEATED_PRESS',
+  'DUMBBELL_SHOULDER_PRESS',
+  'ARNOLD_PRESS',
+  'BEHIND_NECK_PRESS',
+  'Z_PRESS',
+  // Pull Pattern
   'PULL_UP',
   'CHIN_UP',
   'PENDLAY_ROW',
   'BENT_OVER_ROW',
+  'LAT_PULLDOWN',
+  'BARBELL_ROW',
+  'DUMBBELL_ROW',
+  'CABLE_ROW',
+  'T_BAR_ROW',
+  'BARBELL_CURL',
 ];
 
 /**
  * GET /api/strength/profile
- * Get user's strength profile
+ * Get user's strength profile with classification colors
  */
 router.get(
   '/profile',
@@ -59,7 +94,13 @@ router.get(
 
     res.json({
       success: true,
-      data: profile,
+      data: profile ? {
+        ...profile,
+        classificationColors: CLASSIFICATION_COLORS,
+        classificationColor: profile.classification
+          ? CLASSIFICATION_COLORS[profile.classification]
+          : null,
+      } : null,
     });
   })
 );
@@ -207,6 +248,75 @@ router.post(
       data: {
         ...result,
         repRanges,
+      },
+    });
+  })
+);
+
+/**
+ * POST /api/strength/calculate
+ * Calculate strength score without saving (preview/estimation)
+ */
+router.post(
+  '/calculate',
+  authMiddleware,
+  [
+    body('liftType').isIn(LIFT_TYPES).withMessage('Invalid lift type'),
+    body('weight').isFloat({ min: 0.1 }).withMessage('Weight must be positive'),
+    body('reps').isInt({ min: 1, max: 50 }).withMessage('Reps must be between 1-50'),
+    body('isBodyweight').optional().isBoolean(),
+    body('addedWeight').optional().isFloat({ min: 0 }),
+  ],
+  validateRequest,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { liftType, weight, reps, isBodyweight, addedWeight } = req.body;
+
+    // Get user's bodyweight and sex
+    const { prisma } = await import('../config/database');
+    const athleteProfile = await prisma.athleteProfile.findUnique({
+      where: { userId: req.user!.userId },
+      select: { weight: true, sex: true },
+    });
+
+    const bodyweight = athleteProfile?.weight || 70;
+    const sex = (athleteProfile?.sex as 'MALE' | 'FEMALE') || 'MALE';
+
+    // Calculate 1RM
+    let estimated1RM: number;
+    if (isBodyweight) {
+      const bwResult = oneRepMaxCalculator.calculateBodyweight1RM(
+        bodyweight,
+        addedWeight || 0,
+        reps
+      );
+      estimated1RM = bwResult.total1RM;
+    } else {
+      estimated1RM = oneRepMaxCalculator.calculate1RM(weight, reps);
+    }
+
+    // Calculate strength score
+    const scoreResult = strengthStandardsService.calculateStrengthScore(
+      estimated1RM,
+      bodyweight,
+      liftType as LiftType,
+      sex
+    );
+
+    // Get muscle contributions for this lift
+    const muscleContributions = muscleAnalysisService.getMuscleContributions(liftType as LiftType);
+
+    res.json({
+      success: true,
+      data: {
+        estimated1RM,
+        bodyweightRatio: scoreResult.bwRatio,
+        score: scoreResult.score,
+        classification: scoreResult.classification,
+        classificationColor: CLASSIFICATION_COLORS[scoreResult.classification],
+        percentile: scoreResult.percentile,
+        nextLevel: scoreResult.nextLevel,
+        toNextLevel: scoreResult.toNextLevel,
+        muscleContributions,
       },
     });
   })

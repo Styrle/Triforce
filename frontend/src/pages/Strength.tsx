@@ -35,13 +35,15 @@ interface LiftRecord {
 interface LiftStandard {
   liftType: string;
   sex: string;
+  subpar: number;
   untrained: number;
-  beginner: number;
+  novice: number;
   intermediate: number;
   proficient: number;
   advanced: number;
   exceptional: number;
   elite: number;
+  worldClass: number;
 }
 
 interface StandardsResponse {
@@ -57,17 +59,71 @@ interface StandardsResponse {
   userBest1RM: number | null;
 }
 
+// Import strength types and components
+import {
+  LiftType,
+  CLASSIFICATION_COLORS,
+  BODYWEIGHT_LIFTS,
+  StrengthProfile,
+  Classification,
+} from '../types/strength';
+import {
+  AnatomicalModel,
+  RelativeStrengthsChart,
+  StrengthScoreCard
+} from '../components/strength';
+
+// All 44 lift types
 const LIFT_TYPES = [
+  // Squat Pattern
   { value: 'BACK_SQUAT', label: 'Back Squat' },
   { value: 'FRONT_SQUAT', label: 'Front Squat' },
+  { value: 'ZERCHER_SQUAT', label: 'Zercher Squat' },
+  { value: 'SAFETY_BAR_SQUAT', label: 'Safety Bar Squat' },
+  { value: 'LEG_PRESS', label: 'Leg Press' },
+  { value: 'HACK_SQUAT', label: 'Hack Squat' },
+  { value: 'GOBLET_SQUAT', label: 'Goblet Squat' },
+  { value: 'BULGARIAN_SPLIT_SQUAT', label: 'Bulgarian Split Squat' },
+  // Floor Pull Pattern
   { value: 'DEADLIFT', label: 'Deadlift' },
+  { value: 'SUMO_DEADLIFT', label: 'Sumo Deadlift' },
+  { value: 'ROMANIAN_DEADLIFT', label: 'Romanian Deadlift' },
+  { value: 'TRAP_BAR_DEADLIFT', label: 'Trap Bar Deadlift' },
+  { value: 'STIFF_LEG_DEADLIFT', label: 'Stiff Leg Deadlift' },
+  { value: 'DEFICIT_DEADLIFT', label: 'Deficit Deadlift' },
+  { value: 'BLOCK_PULL', label: 'Block Pull' },
+  { value: 'POWER_CLEAN', label: 'Power Clean' },
+  { value: 'CLEAN', label: 'Clean' },
+  { value: 'SNATCH', label: 'Snatch' },
+  { value: 'HIP_THRUST', label: 'Hip Thrust' },
+  // Horizontal Press Pattern
   { value: 'BENCH_PRESS', label: 'Bench Press' },
+  { value: 'INCLINE_BENCH', label: 'Incline Bench' },
+  { value: 'CLOSE_GRIP_BENCH', label: 'Close Grip Bench' },
+  { value: 'DUMBBELL_BENCH_PRESS', label: 'Dumbbell Bench Press' },
+  { value: 'DUMBBELL_INCLINE_PRESS', label: 'Dumbbell Incline Press' },
+  { value: 'FLOOR_PRESS', label: 'Floor Press' },
+  { value: 'DIP', label: 'Dip' },
+  { value: 'WEIGHTED_DIP', label: 'Weighted Dip' },
+  // Vertical Press Pattern
   { value: 'OVERHEAD_PRESS', label: 'Overhead Press' },
-  { value: 'PENDLAY_ROW', label: 'Pendlay Row' },
+  { value: 'PUSH_PRESS', label: 'Push Press' },
+  { value: 'SEATED_PRESS', label: 'Seated Press' },
+  { value: 'DUMBBELL_SHOULDER_PRESS', label: 'Dumbbell Shoulder Press' },
+  { value: 'ARNOLD_PRESS', label: 'Arnold Press' },
+  { value: 'BEHIND_NECK_PRESS', label: 'Behind Neck Press' },
+  { value: 'Z_PRESS', label: 'Z Press' },
+  // Pull Pattern
   { value: 'PULL_UP', label: 'Pull-up' },
   { value: 'CHIN_UP', label: 'Chin-up' },
-  { value: 'DIP', label: 'Dip' },
-  { value: 'POWER_CLEAN', label: 'Power Clean' },
+  { value: 'PENDLAY_ROW', label: 'Pendlay Row' },
+  { value: 'BENT_OVER_ROW', label: 'Bent Over Row' },
+  { value: 'LAT_PULLDOWN', label: 'Lat Pulldown' },
+  { value: 'BARBELL_ROW', label: 'Barbell Row' },
+  { value: 'DUMBBELL_ROW', label: 'Dumbbell Row' },
+  { value: 'CABLE_ROW', label: 'Cable Row' },
+  { value: 'T_BAR_ROW', label: 'T-Bar Row' },
+  { value: 'BARBELL_CURL', label: 'Barbell Curl' },
 ];
 
 export function Strength() {
@@ -217,17 +273,10 @@ function LiftCard({
 }) {
   const liftLabel = LIFT_TYPES.find((l) => l.value === lift.liftType)?.label || lift.liftType;
 
-  const classificationColors: Record<string, string> = {
-    untrained: 'bg-gray-100 text-gray-600',
-    beginner: 'bg-blue-100 text-blue-700',
-    intermediate: 'bg-green-100 text-green-700',
-    proficient: 'bg-cyan-100 text-cyan-700',
-    advanced: 'bg-amber-100 text-amber-700',
-    exceptional: 'bg-orange-100 text-orange-700',
-    elite: 'bg-purple-100 text-purple-700',
-  };
-
-  const classificationKey = lift.classification?.toLowerCase() || 'untrained';
+  // 9-tier classification colors
+  const classificationKey = lift.classification?.toLowerCase() as Classification || 'untrained';
+  const classificationColor = CLASSIFICATION_COLORS[classificationKey] || '#6B7280';
+  const classificationLabel = classificationKey.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
 
   return (
     <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg group">
@@ -248,9 +297,10 @@ function LiftCard({
           <p className="text-xs text-gray-500">Est. 1RM</p>
         </div>
         <span
-          className={`px-2 py-1 rounded text-xs font-medium ${classificationColors[classificationKey] || classificationColors.untrained}`}
+          className="px-2 py-1 rounded text-xs font-medium text-white"
+          style={{ backgroundColor: classificationColor }}
         >
-          {lift.classification?.charAt(0).toUpperCase() + lift.classification?.slice(1) || 'Untrained'}
+          {classificationLabel}
         </span>
         <button
           onClick={onDelete}
@@ -747,43 +797,40 @@ function StandardsTab() {
               <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
             </div>
           ) : standards ? (
-            <div className="space-y-4">
-              <StandardBar label="Beginner" value={standards.beginner} userValue={userBest1RM ?? undefined} color="bg-blue-500" maxValue={standards.elite * 1.1} />
-              <StandardBar label="Intermediate" value={standards.intermediate} userValue={userBest1RM ?? undefined} color="bg-green-500" maxValue={standards.elite * 1.1} />
-              <StandardBar label="Proficient" value={standards.proficient} userValue={userBest1RM ?? undefined} color="bg-cyan-500" maxValue={standards.elite * 1.1} />
-              <StandardBar label="Advanced" value={standards.advanced} userValue={userBest1RM ?? undefined} color="bg-amber-500" maxValue={standards.elite * 1.1} />
-              <StandardBar label="Exceptional" value={standards.exceptional} userValue={userBest1RM ?? undefined} color="bg-orange-500" maxValue={standards.elite * 1.1} />
-              <StandardBar label="Elite" value={standards.elite} userValue={userBest1RM ?? undefined} color="bg-purple-500" maxValue={standards.elite * 1.1} />
+            <div className="space-y-3">
+              {/* 9-tier classification bars */}
+              <StandardBar label="Subpar" value={standards.subpar} userValue={userBest1RM ?? undefined} color={CLASSIFICATION_COLORS.subpar} maxValue={standards.worldClass * 1.1} />
+              <StandardBar label="Untrained" value={standards.untrained} userValue={userBest1RM ?? undefined} color={CLASSIFICATION_COLORS.untrained} maxValue={standards.worldClass * 1.1} />
+              <StandardBar label="Novice" value={standards.novice} userValue={userBest1RM ?? undefined} color={CLASSIFICATION_COLORS.novice} maxValue={standards.worldClass * 1.1} />
+              <StandardBar label="Intermediate" value={standards.intermediate} userValue={userBest1RM ?? undefined} color={CLASSIFICATION_COLORS.intermediate} maxValue={standards.worldClass * 1.1} />
+              <StandardBar label="Proficient" value={standards.proficient} userValue={userBest1RM ?? undefined} color={CLASSIFICATION_COLORS.proficient} maxValue={standards.worldClass * 1.1} />
+              <StandardBar label="Advanced" value={standards.advanced} userValue={userBest1RM ?? undefined} color={CLASSIFICATION_COLORS.advanced} maxValue={standards.worldClass * 1.1} />
+              <StandardBar label="Exceptional" value={standards.exceptional} userValue={userBest1RM ?? undefined} color={CLASSIFICATION_COLORS.exceptional} maxValue={standards.worldClass * 1.1} />
+              <StandardBar label="Elite" value={standards.elite} userValue={userBest1RM ?? undefined} color={CLASSIFICATION_COLORS.elite} maxValue={standards.worldClass * 1.1} />
+              <StandardBar label="World Class" value={standards.worldClass} userValue={userBest1RM ?? undefined} color={CLASSIFICATION_COLORS.world_class} maxValue={standards.worldClass * 1.1} />
 
               {userScore && userBest1RM && (
-                <div className="mt-6 p-4 bg-primary-50 rounded-lg">
-                  <div className="flex items-center justify-between">
+                <div className="mt-6 p-4 rounded-lg" style={{ backgroundColor: `${CLASSIFICATION_COLORS[userScore.classification as Classification] || '#6B7280'}20` }}>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2">
-                      <Award className="w-5 h-5 text-primary-600" />
-                      <span className="font-medium text-primary-900">Your Best: {userBest1RM}kg</span>
+                      <Award className="w-5 h-5" style={{ color: CLASSIFICATION_COLORS[userScore.classification as Classification] || '#6B7280' }} />
+                      <span className="font-medium text-gray-900">Your Best: {userBest1RM}kg</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-sm text-gray-600">
                         Score: <span className="font-bold">{userScore.score}</span>
                       </span>
-                      <span className={`px-2 py-0.5 rounded text-sm font-medium ${
-                        userScore.classification === 'elite' || userScore.classification === 'exceptional'
-                          ? 'bg-purple-100 text-purple-700'
-                          : userScore.classification === 'advanced'
-                          ? 'bg-amber-100 text-amber-700'
-                          : userScore.classification === 'proficient'
-                          ? 'bg-cyan-100 text-cyan-700'
-                          : userScore.classification === 'intermediate'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-blue-100 text-blue-700'
-                      }`}>
-                        {userScore.classification.charAt(0).toUpperCase() + userScore.classification.slice(1)}
+                      <span
+                        className="px-2 py-0.5 rounded text-sm font-medium text-white"
+                        style={{ backgroundColor: CLASSIFICATION_COLORS[userScore.classification as Classification] || '#6B7280' }}
+                      >
+                        {userScore.classification.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </span>
                     </div>
                   </div>
                   {userScore.nextLevel && userScore.toNextLevel && (
                     <p className="text-sm text-gray-600 mt-2">
-                      {userScore.toNextLevel}kg more to reach {userScore.nextLevel}
+                      {userScore.toNextLevel}kg more to reach {userScore.nextLevel.replace('_', ' ')}
                     </p>
                   )}
                 </div>
@@ -821,11 +868,20 @@ function StandardBar({
   return (
     <div>
       <div className="flex justify-between text-sm mb-1">
-        <span className="text-gray-600">{label}</span>
-        <span className="font-medium">{value}kg</span>
+        <div className="flex items-center gap-2">
+          <span
+            className="w-3 h-3 rounded-full flex-shrink-0"
+            style={{ backgroundColor: color }}
+          />
+          <span className="text-gray-600">{label}</span>
+        </div>
+        <span className="font-medium">{Math.round(value)}kg</span>
       </div>
-      <div className="h-3 bg-gray-100 rounded-full overflow-hidden relative">
-        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${percentage}%` }} />
+      <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden relative">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${percentage}%`, backgroundColor: color }}
+        />
         {userValue !== undefined && userValue > 0 && (
           <div
             className="absolute top-0 w-1 h-full bg-gray-800 rounded"
@@ -839,13 +895,25 @@ function StandardBar({
 }
 
 function AnalysisTab() {
-  const { data: analysis, isLoading } = useQuery({
+  // Fetch strength profile with category scores
+  const { data: profileData, isLoading: profileLoading } = useQuery({
+    queryKey: ['strength-profile'],
+    queryFn: async () => {
+      const response = await api.get<{ success: boolean; data: StrengthProfile | null }>('/strength/profile');
+      return response.data.data;
+    },
+  });
+
+  // Fetch muscle analysis
+  const { data: analysis, isLoading: analysisLoading } = useQuery({
     queryKey: ['muscle-analysis'],
     queryFn: async () => {
       const response = await api.get('/strength/muscle-analysis');
       return response.data.data;
     },
   });
+
+  const isLoading = profileLoading || analysisLoading;
 
   if (isLoading) {
     return (
@@ -855,74 +923,125 @@ function AnalysisTab() {
     );
   }
 
-  if (!analysis || !analysis.muscleScores || analysis.muscleScores.length === 0) {
+  const hasData = profileData && profileData.strengthScore !== null;
+  const muscleScores = analysis?.muscleScores || [];
+
+  if (!hasData && muscleScores.length === 0) {
     return (
       <div className="card">
         <div className="card-body text-center py-12">
           <Dumbbell className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 font-medium">Not enough data for muscle analysis</p>
-          <p className="text-sm text-gray-400 mt-1">Record lifts across different movements to see muscle balance</p>
+          <p className="text-gray-500 font-medium">Not enough data for analysis</p>
+          <p className="text-sm text-gray-400 mt-1">Record lifts across different movements to see your strength profile</p>
         </div>
       </div>
     );
   }
 
+  // Map classification to proper type
+  const classification = profileData?.classification as Classification | null;
+
+  // Default category scores if not available
+  const categoryScores = profileData?.categoryScores || {
+    squat: null,
+    floorPull: null,
+    horizPress: null,
+    vertPress: null,
+    pull: null,
+  };
+
   return (
     <div className="space-y-6">
-      {/* Balance Score */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="font-semibold">Muscle Balance</h2>
+      {/* Main Score and Categories */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Score Card - takes 1 column */}
+        <div className="lg:col-span-1">
+          <StrengthScoreCard
+            strengthScore={profileData?.strengthScore ?? null}
+            symmetryScore={analysis?.balanceScore ?? null}
+            totalScore={profileData?.totalScore ?? null}
+            classification={classification}
+            categoryScores={categoryScores}
+            liftCount={profileData?.liftCount ?? 0}
+            className="h-full"
+          />
         </div>
-        <div className="card-body">
-          <div className="flex items-center justify-center gap-8">
-            <div className="text-center">
-              <div className="text-5xl font-bold text-primary-600">{analysis.balanceScore || '--'}</div>
-              <p className="text-sm text-gray-500 mt-1">Balance Score</p>
+
+        {/* Anatomical Model - takes 2 columns */}
+        <div className="lg:col-span-2">
+          <div className="card h-full">
+            <div className="card-body">
+              <AnatomicalModel
+                muscleScores={muscleScores}
+                className="h-full"
+              />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Muscle Group Scores */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="font-semibold">Muscle Group Scores</h2>
-        </div>
-        <div className="card-body">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {analysis.muscleScores.map((muscle: any) => (
-              <div key={muscle.muscleGroup} className="p-4 bg-gray-50 rounded-lg">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium text-gray-900">{formatMuscleGroup(muscle.muscleGroup)}</span>
-                  <span className="font-bold">{muscle.score}</span>
-                </div>
-                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${
-                      muscle.score >= 80 ? 'bg-green-500' : muscle.score >= 60 ? 'bg-amber-500' : 'bg-red-500'
-                    }`}
-                    style={{ width: `${muscle.score}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+      {/* Relative Strengths Chart */}
+      {muscleScores.length > 0 && (
+        <div className="card">
+          <div className="card-body">
+            <RelativeStrengthsChart
+              muscleScores={muscleScores}
+            />
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Weak Points */}
-      {analysis.weakPoints && analysis.weakPoints.length > 0 && (
+      {/* Imbalances & Recommendations */}
+      {analysis?.imbalances && analysis.imbalances.length > 0 && (
         <div className="card border-amber-200 bg-amber-50">
           <div className="card-header">
-            <h2 className="font-semibold text-amber-800">Areas to Improve</h2>
+            <h2 className="font-semibold text-amber-800">Muscle Imbalances Detected</h2>
+          </div>
+          <div className="card-body">
+            <div className="space-y-3">
+              {analysis.imbalances.map((imbalance: any, i: number) => (
+                <div key={i} className="flex items-start gap-3 p-3 bg-white rounded-lg">
+                  <Target className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {formatMuscleGroup(imbalance.muscleGroup || '')}
+                      {imbalance.type === 'weak' ? ' (Weak Point)' : ' (Strong Point)'}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {imbalance.description || `${Math.abs(imbalance.deviation || 0).toFixed(1)}% ${imbalance.type === 'weak' ? 'below' : 'above'} average`}
+                    </p>
+                    {imbalance.priority && (
+                      <span className={`inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium ${
+                        imbalance.priority === 'high' ? 'bg-red-100 text-red-700' :
+                        imbalance.priority === 'medium' ? 'bg-amber-100 text-amber-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {imbalance.priority} priority
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Weak Points / Recommendations */}
+      {analysis?.weakPoints && analysis.weakPoints.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <h2 className="font-semibold">Recommended Focus Areas</h2>
           </div>
           <div className="card-body">
             <ul className="space-y-2">
               {analysis.weakPoints.map((point: any, i: number) => (
-                <li key={i} className="flex items-start gap-2 text-amber-900">
-                  <Target className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>{formatMuscleGroup(point.muscleGroup)}: Consider adding more {point.recommendation}</span>
+                <li key={i} className="flex items-start gap-2 text-gray-700">
+                  <Dumbbell className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary-500" />
+                  <span>
+                    <span className="font-medium">{formatMuscleGroup(point.muscleGroup)}:</span>{' '}
+                    {point.recommendation}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -938,8 +1057,10 @@ function AddLiftModal({ onClose }: { onClose: () => void }) {
   const [liftType, setLiftType] = useState('BACK_SQUAT');
   const [weight, setWeight] = useState('');
   const [reps, setReps] = useState('');
-  const [isBodyweight, setIsBodyweight] = useState(false);
   const [notes, setNotes] = useState('');
+
+  // Check if selected lift is a bodyweight exercise
+  const isBodyweight = BODYWEIGHT_LIFTS.includes(liftType as LiftType);
 
   const mutation = useMutation({
     mutationFn: async (data: { liftType: string; weight: number; reps: number; isBodyweight: boolean; notes?: string }) => {
@@ -948,8 +1069,10 @@ function AddLiftModal({ onClose }: { onClose: () => void }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['strength-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['strength-lifts'] });
       queryClient.invalidateQueries({ queryKey: ['strength-lifts-all'] });
       queryClient.invalidateQueries({ queryKey: ['strength-progress'] });
+      queryClient.invalidateQueries({ queryKey: ['muscle-analysis'] });
       onClose();
     },
   });
@@ -958,7 +1081,7 @@ function AddLiftModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     mutation.mutate({
       liftType,
-      weight: parseFloat(weight),
+      weight: parseFloat(weight) || 0,
       reps: parseInt(reps),
       isBodyweight,
       notes: notes || undefined,
@@ -967,8 +1090,8 @@ function AddLiftModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
-        <div className="flex items-center justify-between p-4 border-b">
+      <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white">
           <h2 className="text-lg font-semibold">Log Lift</h2>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
             <X className="w-5 h-5" />
@@ -980,17 +1103,34 @@ function AddLiftModal({ onClose }: { onClose: () => void }) {
             <label className="block text-sm font-medium text-gray-700 mb-1">Lift Type</label>
             <select
               value={liftType}
-              onChange={(e) => {
-                setLiftType(e.target.value);
-                setIsBodyweight(['PULL_UP', 'CHIN_UP', 'DIP'].includes(e.target.value));
-              }}
+              onChange={(e) => setLiftType(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
-              {LIFT_TYPES.map((lift) => (
-                <option key={lift.value} value={lift.value}>
-                  {lift.label}
-                </option>
-              ))}
+              <optgroup label="Squat Patterns">
+                {LIFT_TYPES.slice(0, 8).map((lift) => (
+                  <option key={lift.value} value={lift.value}>{lift.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Floor Pull Patterns">
+                {LIFT_TYPES.slice(8, 19).map((lift) => (
+                  <option key={lift.value} value={lift.value}>{lift.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Horizontal Press">
+                {LIFT_TYPES.slice(19, 27).map((lift) => (
+                  <option key={lift.value} value={lift.value}>{lift.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Vertical Press">
+                {LIFT_TYPES.slice(27, 34).map((lift) => (
+                  <option key={lift.value} value={lift.value}>{lift.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Pull Patterns">
+                {LIFT_TYPES.slice(34).map((lift) => (
+                  <option key={lift.value} value={lift.value}>{lift.label}</option>
+                ))}
+              </optgroup>
             </select>
           </div>
 
@@ -1002,6 +1142,7 @@ function AddLiftModal({ onClose }: { onClose: () => void }) {
               <input
                 type="number"
                 step="0.5"
+                min="0"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
                 placeholder={isBodyweight ? '0' : '100'}
@@ -1025,9 +1166,12 @@ function AddLiftModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {isBodyweight && (
-            <p className="text-sm text-gray-500">
-              Bodyweight exercises use your profile weight. Added weight is optional.
-            </p>
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-700">
+                <span className="font-medium">Bodyweight exercise:</span> Uses your profile weight.
+                Enter any additional weight (e.g., weight vest, dip belt) or leave at 0 for bodyweight only.
+              </p>
+            </div>
           )}
 
           <div>
@@ -1064,7 +1208,8 @@ function AddLiftModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function formatMuscleGroup(group: string): string {
+function formatMuscleGroup(group: string | undefined | null): string {
+  if (!group) return 'Unknown';
   return group
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())

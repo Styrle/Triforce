@@ -25,7 +25,11 @@
       "Bash(node:*)",
       "Bash(chmod:*)",
       "Bash(bash:*)",
-      "WebFetch(domain:symmetricstrength.com)"
+      "WebFetch(domain:symmetricstrength.com)",
+      "Bash(tree:*)",
+      "Bash(xargs:*)",
+      "Bash(cmd.exe /c \"taskkill /PID 4132 /F\")",
+      "Bash(npm run build:*)"
     ]
   }
 }
