@@ -44,6 +44,7 @@ export type SportType = 'SWIM' | 'BIKE' | 'RUN' | 'STRENGTH' | 'OTHER';
 export interface Activity {
   id: string;
   name: string;
+  description?: string | null;
   sportType: SportType;
   startDate: string;
   movingTime: number;
@@ -54,8 +55,29 @@ export interface Activity {
   avgHeartRate: number | null;
   maxHeartRate: number | null;
   avgPower: number | null;
+  maxPower?: number | null;
   normalizedPower: number | null;
   avgSpeed: number | null;
+  maxSpeed?: number | null;
+  avgCadence?: number | null;
+  intensityFactor?: number | null;
+  efficiencyFactor?: number | null;
+  stravaId?: string | null;
+  laps?: ActivityLap[];
+}
+
+export interface ActivityLap {
+  id: string;
+  lapIndex: number;
+  movingTime: number;
+  elapsedTime: number;
+  distance?: number | null;
+  avgHeartRate?: number | null;
+  maxHeartRate?: number | null;
+  avgPower?: number | null;
+  maxPower?: number | null;
+  avgSpeed?: number | null;
+  avgCadence?: number | null;
 }
 
 // PMC types
@@ -297,4 +319,206 @@ export interface PlanComplianceMetrics {
     completed: number;
     compliance: number;
   }>;
+}
+
+// Nutrition types
+export type MealType = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK';
+
+export interface NutritionEntry {
+  id: string;
+  dailyId: string;
+  meal: MealType;
+  name: string;
+  servings: number;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  fiber?: number | null;
+  sugar?: number | null;
+  sodium?: number | null;
+  time: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface DailyNutrition {
+  id: string;
+  userId: string;
+  date: string;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  fiber: number | null;
+  sugar: number | null;
+  sodium: number | null;
+  waterMl: number | null;
+  calorieTarget: number | null;
+  proteinTarget: number | null;
+  carbTarget: number | null;
+  fatTarget: number | null;
+  source: string | null;
+  entries: NutritionEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DailySummary {
+  date: string;
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  totalFiber: number;
+  entries: Array<{
+    date: string;
+    meal: MealType;
+    name: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  }>;
+}
+
+export interface WeeklyNutritionSummary {
+  weekStart: string;
+  weekEnd: string;
+  totals: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    daysLogged: number;
+  };
+  averages: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  dailyData: DailyNutrition[];
+}
+
+export interface NutritionTargets {
+  calorieTarget?: number;
+  proteinTarget?: number;
+  carbTarget?: number;
+  fatTarget?: number;
+}
+
+export interface MFPImportResult {
+  imported: number;
+  skipped: number;
+  daysProcessed: number;
+}
+
+export interface LogFoodInput {
+  meal: MealType;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  date?: string;
+  servings?: number;
+  fiber?: number;
+  sugar?: number;
+  sodium?: number;
+  notes?: string;
+}
+
+// Wellness types
+export type CyclePhase = 'MENSTRUAL' | 'FOLLICULAR' | 'OVULATION' | 'LUTEAL';
+
+export interface DailyWellness {
+  id: string;
+  userId: string;
+  date: string;
+
+  // Core metrics (1-10)
+  overallMood: number | null;
+  sleepQuality: number | null;
+  energyLevel: number | null;
+  stressLevel: number | null;
+  muscleSoreness: number | null;
+  motivation: number | null;
+
+  // Quantitative
+  sleepDuration: number | null;
+  restingHR: number | null;
+  hrv: number | null;
+  weight: number | null;
+
+  // Computed
+  readinessScore: number | null;
+
+  // Meta
+  notes: string | null;
+  tags: string[];
+  cycleDay: number | null;
+  cyclePhase: CyclePhase | null;
+
+  createdAt: string;
+  updatedAt: string;
+
+  // Computed breakdown (added by API)
+  breakdown?: ReadinessBreakdown;
+}
+
+export interface WellnessInput {
+  date?: string;
+  overallMood?: number;
+  sleepQuality?: number;
+  energyLevel?: number;
+  stressLevel?: number;
+  muscleSoreness?: number;
+  motivation?: number;
+  sleepDuration?: number;
+  restingHR?: number;
+  hrv?: number;
+  weight?: number;
+  notes?: string;
+  tags?: string[];
+  cycleDay?: number;
+  cyclePhase?: CyclePhase;
+}
+
+export interface ReadinessBreakdown {
+  score: number;
+  status: 'OPTIMAL' | 'GOOD' | 'MODERATE' | 'LOW' | 'POOR';
+  color: string;
+  factors: {
+    name: string;
+    value: number;
+    contribution: number;
+    status: 'positive' | 'neutral' | 'negative';
+  }[];
+  recommendation: string;
+}
+
+export interface WellnessTrend {
+  date: string;
+  readinessScore: number | null;
+  overallMood: number | null;
+  sleepQuality: number | null;
+  energyLevel: number | null;
+  stressLevel: number | null;
+  muscleSoreness: number | null;
+  tsb: number | null;
+}
+
+export interface WellnessCorrelation {
+  metric: string;
+  correlation: number;
+  description: string;
+}
+
+export interface WellnessStats {
+  avgReadiness: number;
+  avgSleep: number;
+  avgMood: number;
+  entriesLogged: number;
+  streak: number;
 }

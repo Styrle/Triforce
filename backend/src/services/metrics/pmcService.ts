@@ -221,6 +221,7 @@ export class PMCService {
 
   /**
    * Get current fitness metrics
+   * Gets the most recent metrics, not just for today's exact date
    */
   async getCurrentMetrics(userId: string): Promise<{
     ctl: number;
@@ -229,19 +230,26 @@ export class PMCService {
     ctlChange: number;
     atlChange: number;
   }> {
-    const today = startOfDay(new Date());
-    const weekAgo = addDays(today, -7);
+    // Get the most recent metrics (not just today)
+    const currentMetrics = await prisma.dailyMetrics.findFirst({
+      where: { userId },
+      orderBy: { date: 'desc' },
+      select: { date: true, ctl: true, atl: true, tsb: true },
+    });
 
-    const [currentMetrics, weekAgoMetrics] = await Promise.all([
-      prisma.dailyMetrics.findUnique({
-        where: { userId_date: { userId, date: today } },
-        select: { ctl: true, atl: true, tsb: true },
-      }),
-      prisma.dailyMetrics.findUnique({
-        where: { userId_date: { userId, date: weekAgo } },
+    // Get metrics from 7 days before the most recent date
+    let weekAgoMetrics = null;
+    if (currentMetrics) {
+      const weekAgo = addDays(currentMetrics.date, -7);
+      weekAgoMetrics = await prisma.dailyMetrics.findFirst({
+        where: {
+          userId,
+          date: { lte: weekAgo },
+        },
+        orderBy: { date: 'desc' },
         select: { ctl: true, atl: true },
-      }),
-    ]);
+      });
+    }
 
     const current = {
       ctl: currentMetrics?.ctl || 0,
@@ -348,66 +356,127 @@ export class PMCService {
 
   /**
    * Initialize PMC for a new user (backfill from first activity)
+   * Optimized to fetch all activities at once and process in memory
    */
   async initializePMC(userId: string): Promise<void> {
     try {
-      // Find the first activity
-      const firstActivity = await prisma.activity.findFirst({
+      // Fetch ALL activities at once (much faster than per-day queries)
+      const activities = await prisma.activity.findMany({
         where: { userId },
         orderBy: { startDate: 'asc' },
-        select: { startDate: true },
+        select: {
+          startDate: true,
+          tss: true,
+          movingTime: true,
+          distance: true,
+          sportType: true,
+        },
       });
 
-      if (!firstActivity) {
+      if (activities.length === 0) {
         logger.info(`No activities found for user ${userId}, skipping PMC init`);
         return;
       }
 
-      // Start from the first activity date
-      const startDate = startOfDay(firstActivity.startDate);
-      const today = startOfDay(new Date());
-      let currentDate = startDate;
+      // Group activities by date (in memory)
+      const activityByDate = new Map<string, typeof activities>();
+      for (const activity of activities) {
+        const dateKey = startOfDay(activity.startDate).toISOString();
+        if (!activityByDate.has(dateKey)) {
+          activityByDate.set(dateKey, []);
+        }
+        activityByDate.get(dateKey)!.push(activity);
+      }
 
+      // Determine date range
+      const firstDate = startOfDay(activities[0].startDate);
+      const today = startOfDay(new Date());
+
+      // Safety check: max 2 years of data
+      const maxDays = 730;
+      const daysDiff = Math.floor((today.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
+      const startDate = daysDiff > maxDays ? addDays(today, -maxDays) : firstDate;
+
+      let currentDate = startDate;
       let prevCtl = 0;
       let prevAtl = 0;
 
-      while (currentDate <= today) {
-        // Get activities for this day
-        const dayEnd = addDays(currentDate, 1);
-        const activities = await prisma.activity.findMany({
-          where: {
-            userId,
-            startDate: {
-              gte: currentDate,
-              lt: dayEnd,
-            },
-          },
-          select: { tss: true },
-        });
+      // Prepare batch of metrics to upsert
+      const metricsToUpsert: Array<{
+        date: Date;
+        data: {
+          tss: number;
+          ctl: number;
+          atl: number;
+          tsb: number;
+          activityCount: number;
+          totalDuration: number;
+          totalDistance: number;
+          swimDuration: number;
+          bikeDuration: number;
+          runDuration: number;
+          strengthDuration: number;
+          swimTss: number;
+          bikeTss: number;
+          runTss: number;
+        };
+      }> = [];
 
-        const dayTss = activities.reduce((sum, a) => sum + (a.tss || 0), 0);
+      let iterations = 0;
+      const maxIterations = maxDays + 10; // Safety limit
+
+      while (currentDate <= today && iterations < maxIterations) {
+        iterations++;
+        const dateKey = currentDate.toISOString();
+        const dayActivities = activityByDate.get(dateKey) || [];
+
+        // Aggregate daily metrics
+        const dayTss = dayActivities.reduce((sum, a) => sum + (a.tss || 0), 0);
+        const totalDuration = dayActivities.reduce((sum, a) => sum + a.movingTime, 0);
+        const totalDistance = dayActivities.reduce((sum, a) => sum + (a.distance || 0), 0);
+
+        // By sport breakdown
+        const bySport = {
+          swimDuration: 0,
+          bikeDuration: 0,
+          runDuration: 0,
+          strengthDuration: 0,
+          swimTss: 0,
+          bikeTss: 0,
+          runTss: 0,
+        };
+
+        for (const activity of dayActivities) {
+          if (activity.sportType === 'SWIM') {
+            bySport.swimDuration += activity.movingTime;
+            bySport.swimTss += activity.tss || 0;
+          } else if (activity.sportType === 'BIKE') {
+            bySport.bikeDuration += activity.movingTime;
+            bySport.bikeTss += activity.tss || 0;
+          } else if (activity.sportType === 'RUN') {
+            bySport.runDuration += activity.movingTime;
+            bySport.runTss += activity.tss || 0;
+          } else if (activity.sportType === 'STRENGTH') {
+            bySport.strengthDuration += activity.movingTime;
+          }
+        }
 
         // Calculate PMC
         const ctl = prevCtl + (dayTss - prevCtl) / CTL_TIME_CONSTANT;
         const atl = prevAtl + (dayTss - prevAtl) / ATL_TIME_CONSTANT;
         const tsb = ctl - atl;
 
-        // Upsert daily metrics
-        await prisma.dailyMetrics.upsert({
-          where: { userId_date: { userId, date: currentDate } },
-          create: {
-            userId,
-            date: currentDate,
+        metricsToUpsert.push({
+          date: new Date(currentDate),
+          data: {
             tss: dayTss,
             ctl,
             atl,
             tsb,
-            activityCount: activities.length,
-          },
-          update: {
-            ctl,
-            atl,
-            tsb,
+            activityCount: dayActivities.length,
+            totalDuration,
+            totalDistance,
+            ...bySport,
           },
         });
 
@@ -416,7 +485,25 @@ export class PMCService {
         currentDate = addDays(currentDate, 1);
       }
 
-      logger.info(`Initialized PMC for user ${userId}`);
+      // Batch upsert in chunks (Prisma transactions can timeout with too many operations)
+      const chunkSize = 50;
+      const totalDays = metricsToUpsert.length;
+      logger.info(`Processing ${totalDays} days of PMC data for user ${userId}`);
+
+      for (let i = 0; i < metricsToUpsert.length; i += chunkSize) {
+        const chunk = metricsToUpsert.slice(i, i + chunkSize);
+        await prisma.$transaction(
+          chunk.map(({ date, data }) =>
+            prisma.dailyMetrics.upsert({
+              where: { userId_date: { userId, date } },
+              create: { userId, date, ...data },
+              update: data,
+            })
+          )
+        );
+      }
+
+      logger.info(`Initialized PMC for user ${userId}: ${totalDays} days processed`);
     } catch (error) {
       logger.error(`Failed to initialize PMC:`, error);
       throw error;

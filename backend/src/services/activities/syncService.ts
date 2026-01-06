@@ -264,6 +264,11 @@ export class ActivitySyncService {
         }
       }
 
+      // FALLBACK: Estimate TSS if we couldn't calculate it but have useful data
+      if (tss === null) {
+        tss = this.estimateTSS(activity);
+      }
+
       // Calculate efficiency factor if we have HR and power/pace
       let efficiencyFactor: number | null = null;
       if (activity.avgHeartRate && activity.avgHeartRate > 0) {
@@ -295,6 +300,139 @@ export class ActivitySyncService {
       logger.error(`Failed to process activity ${activityId}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Estimate TSS when profile thresholds are not set
+   * Uses duration, heart rate, and power to estimate training load
+   */
+  private estimateTSS(activity: {
+    sportType: SportType;
+    movingTime: number;
+    avgHeartRate: number | null;
+    avgPower: number | null;
+    avgSpeed: number | null;
+    distance: number | null;
+  }): number {
+    const durationHours = activity.movingTime / 3600;
+
+    // Base TSS per hour by sport type (assuming moderate effort)
+    const baseTssPerHour: Record<SportType, number> = {
+      BIKE: 50,
+      RUN: 60,
+      SWIM: 55,
+      STRENGTH: 40,
+      OTHER: 40,
+    };
+
+    let baseTss = (baseTssPerHour[activity.sportType] || 50) * durationHours;
+
+    // Adjust based on heart rate intensity if available
+    if (activity.avgHeartRate) {
+      // Assume 150 bpm is moderate intensity (IF ~= 0.75)
+      // Scale TSS based on HR deviation from moderate
+      const hrIntensity = activity.avgHeartRate / 150;
+      baseTss *= Math.pow(hrIntensity, 2); // Square to emphasize intensity effect
+    }
+
+    // For cycling, adjust based on power if available
+    if (activity.sportType === 'BIKE' && activity.avgPower) {
+      // Assume 150W is moderate for recreational cyclist
+      const powerIntensity = activity.avgPower / 150;
+      baseTss *= Math.pow(powerIntensity, 1.5);
+    }
+
+    // For running, adjust based on pace if available
+    if (activity.sportType === 'RUN' && activity.avgSpeed && activity.avgSpeed > 0) {
+      // Assume 3 m/s (~5:30/km) is moderate pace
+      const paceIntensity = activity.avgSpeed / 3.0;
+      baseTss *= Math.pow(paceIntensity, 1.5);
+    }
+
+    // Cap estimated TSS to reasonable bounds
+    return Math.round(Math.max(10, Math.min(baseTss, 500)));
+  }
+
+  /**
+   * Recalculate TSS for all activities of a user
+   * Optimized: fetches all data at once and batch updates
+   * Does NOT update daily metrics (caller should run initializePMC after)
+   */
+  async recalculateAllTSS(userId: string): Promise<{ processed: number; updated: number }> {
+    // Fetch all activities with full data needed for TSS calculation
+    const activities = await prisma.activity.findMany({
+      where: { userId },
+      include: {
+        user: {
+          include: { profile: true },
+        },
+      },
+    });
+
+    const profile = activities[0]?.user?.profile;
+    let updated = 0;
+    const updates: Array<{ id: string; tss: number }> = [];
+
+    for (const activity of activities) {
+      let tss: number | null = null;
+
+      // Calculate TSS based on sport type
+      if (activity.sportType === 'BIKE' && activity.avgPower) {
+        const normalizedPower = activity.avgPower;
+        if (profile?.ftp && normalizedPower) {
+          tss = metricsCalculator.calculateBikeTSS(
+            activity.movingTime,
+            normalizedPower,
+            profile.ftp
+          );
+        }
+      } else if (activity.sportType === 'RUN') {
+        if (profile?.thresholdPace && activity.avgSpeed && activity.avgSpeed > 0) {
+          const avgPace = 1000 / activity.avgSpeed / 60;
+          const intensityFactor = profile.thresholdPace / avgPace;
+          tss = metricsCalculator.calculateRunTSS(activity.movingTime, intensityFactor);
+        } else if (profile?.lthr && activity.avgHeartRate) {
+          tss = metricsCalculator.calculateHRBasedTSS(
+            activity.movingTime,
+            activity.avgHeartRate,
+            profile.lthr
+          );
+        }
+      } else if (activity.sportType === 'SWIM') {
+        if (profile?.css && activity.avgSpeed && activity.avgSpeed > 0) {
+          const intensityFactor = activity.avgSpeed / profile.css;
+          tss = metricsCalculator.calculateSwimTSS(activity.movingTime, intensityFactor);
+        }
+      }
+
+      // Fallback estimation if no TSS calculated
+      if (tss === null) {
+        tss = this.estimateTSS(activity);
+      }
+
+      // Only update if TSS changed
+      if (activity.tss !== tss) {
+        updates.push({ id: activity.id, tss });
+        updated++;
+      }
+    }
+
+    // Batch update in chunks
+    const chunkSize = 50;
+    for (let i = 0; i < updates.length; i += chunkSize) {
+      const chunk = updates.slice(i, i + chunkSize);
+      await prisma.$transaction(
+        chunk.map(({ id, tss }) =>
+          prisma.activity.update({
+            where: { id },
+            data: { tss, processed: true },
+          })
+        )
+      );
+    }
+
+    logger.info(`Recalculated TSS: ${activities.length} processed, ${updated} updated`);
+    return { processed: activities.length, updated };
   }
 
   /**

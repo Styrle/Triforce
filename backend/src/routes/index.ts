@@ -10,6 +10,7 @@ import gearRoutes from './gear';
 import plansRoutes from './plans';
 import resourcesRoutes from './resources';
 import nutritionRoutes from './nutrition';
+import wellnessRoutes from './wellness';
 import importRoutes from './import';
 
 const router = Router();
@@ -34,6 +35,7 @@ router.get('/', (req, res) => {
         plans: '/api/plans',
         resources: '/api/resources',
         nutrition: '/api/nutrition',
+        wellness: '/api/wellness',
         import: '/api/import',
       },
     },
@@ -64,6 +66,7 @@ router.use('/gear', gearRoutes);
 router.use('/plans', plansRoutes);
 router.use('/resources', resourcesRoutes);
 router.use('/nutrition', nutritionRoutes);
+router.use('/wellness', wellnessRoutes);
 router.use('/import', importRoutes);
 
 export default router;

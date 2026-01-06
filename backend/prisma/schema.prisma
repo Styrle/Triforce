@@ -31,6 +31,7 @@ model User {
   plans            TrainingPlan[]
   plannedWorkouts  PlannedWorkout[]
   dailyMetrics     DailyMetrics[]
+  dailyWellness    DailyWellness[]
   gear             Gear[]
   dailyNutrition   DailyNutrition[]
   routines         Routine[]
@@ -408,6 +409,55 @@ model DailyMetrics {
 
   @@unique([userId, date])
   @@index([userId, date])
+}
+
+// ============ DAILY WELLNESS ============
+
+model DailyWellness {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  date DateTime @db.Date
+
+  // Core wellness metrics (1-10 scale)
+  overallMood    Int? // 1=Very Low, 10=Excellent
+  sleepQuality   Int? // 1=Terrible, 10=Perfect
+  energyLevel    Int? // 1=Exhausted, 10=Energized
+  stressLevel    Int? // 1=No Stress, 10=Extremely Stressed (inverted for scoring)
+  muscleSoreness Int? // 1=No Soreness, 10=Extremely Sore (inverted for scoring)
+  motivation     Int? // 1=No Motivation, 10=Highly Motivated
+
+  // Quantitative metrics
+  sleepDuration Float? // Hours of sleep
+  restingHR     Int?   // Resting heart rate (bpm)
+  hrv           Float? // Heart rate variability (ms)
+  weight        Float? // Body weight (kg or lbs based on user preference)
+
+  // Computed readiness score (0-100)
+  readinessScore Float?
+
+  // Notes and tags
+  notes String?
+  tags  String[] // e.g., ["travel", "sick", "race-week", "deload"]
+
+  // Menstrual cycle tracking (optional)
+  cycleDay   Int?
+  cyclePhase CyclePhase?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@index([userId, readinessScore])
+}
+
+enum CyclePhase {
+  MENSTRUAL
+  FOLLICULAR
+  OVULATION
+  LUTEAL
 }
 
 // ============ STRENGTH TRAINING ============

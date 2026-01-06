@@ -2,10 +2,11 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import {
   LayoutDashboard,
-  Activity,
   LineChart,
   ClipboardList,
   Dumbbell,
+  Apple,
+  Heart,
   Settings,
   LogOut,
   Menu,
@@ -15,10 +16,11 @@ import { useState } from 'react';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/activities', label: 'Activities', icon: Activity },
   { path: '/analytics', label: 'Analytics', icon: LineChart },
   { path: '/plans', label: 'Plans', icon: ClipboardList },
   { path: '/strength', label: 'Strength', icon: Dumbbell },
+  { path: '/nutrition', label: 'Nutrition', icon: Apple },
+  { path: '/wellness', label: 'Wellness', icon: Heart },
   { path: '/settings', label: 'Settings', icon: Settings },
 ];
 

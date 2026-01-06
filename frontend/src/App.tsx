@@ -15,8 +15,11 @@ import { TrainingPlans } from './pages/TrainingPlans';
 import { PlanBuilder } from './pages/PlanBuilder';
 import { PlanDetail } from './pages/PlanDetail';
 import { Activities } from './pages/Activities';
+import { ActivityDetail } from './pages/ActivityDetail';
 import { Analytics } from './pages/Analytics';
 import { Strength } from './pages/Strength';
+import { Nutrition } from './pages/Nutrition';
+import { Wellness } from './pages/Wellness';
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -89,11 +92,14 @@ function App() {
       >
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/activities" element={<Activities />} />
+        <Route path="/activities/:id" element={<ActivityDetail />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/plans" element={<TrainingPlans />} />
         <Route path="/plans/new" element={<PlanBuilder />} />
         <Route path="/plans/:id" element={<PlanDetail />} />
         <Route path="/strength" element={<Strength />} />
+        <Route path="/nutrition" element={<Nutrition />} />
+        <Route path="/wellness" element={<Wellness />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
 

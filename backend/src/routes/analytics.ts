@@ -34,6 +34,178 @@ const validateRequest = (req: AuthRequest, res: Response, next: () => void) => {
 };
 
 /**
+ * GET /api/analytics/summary
+ * Get activity summary for a date range
+ */
+router.get(
+  '/summary',
+  authMiddleware,
+  [query('days').optional().isInt({ min: 1, max: 365 })],
+  validateRequest,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const days = parseInt(req.query.days as string) || 90;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    // Get activities in date range
+    const activities = await prisma.activity.findMany({
+      where: {
+        userId: req.user!.userId,
+        startDate: { gte: startDate },
+      },
+      select: {
+        sportType: true,
+        movingTime: true,
+        distance: true,
+        tss: true,
+      },
+    });
+
+    // Calculate totals
+    const totalActivities = activities.length;
+    const totalDuration = activities.reduce((sum, a) => sum + a.movingTime, 0);
+    const totalDistance = activities.reduce((sum, a) => sum + (a.distance || 0), 0);
+    const totalTSS = activities.reduce((sum, a) => sum + (a.tss || 0), 0);
+
+    // Group by sport
+    const bySport: Record<string, { count: number; duration: number; distance: number; tss: number }> = {};
+    for (const activity of activities) {
+      if (!bySport[activity.sportType]) {
+        bySport[activity.sportType] = { count: 0, duration: 0, distance: 0, tss: 0 };
+      }
+      bySport[activity.sportType].count += 1;
+      bySport[activity.sportType].duration += activity.movingTime;
+      bySport[activity.sportType].distance += activity.distance || 0;
+      bySport[activity.sportType].tss += activity.tss || 0;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        totalActivities,
+        totalDuration,
+        totalDistance,
+        totalTSS,
+        bySport,
+      },
+    });
+  })
+);
+
+/**
+ * GET /api/analytics/current
+ * Get current PMC metrics (CTL, ATL, TSB)
+ */
+router.get(
+  '/current',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { pmcService } = await import('../services/metrics/pmcService');
+    const metrics = await pmcService.getCurrentMetrics(req.user!.userId);
+
+    // Get weekly stats
+    const weekSummary = await pmcService.getWeekSummary(req.user!.userId);
+
+    res.json({
+      success: true,
+      data: {
+        ctl: metrics.ctl,
+        ctlStatus: getCTLStatus(metrics.ctl),
+        atl: metrics.atl,
+        atlStatus: getATLStatus(metrics.atl),
+        tsb: metrics.tsb,
+        tsbStatus: getTSBStatus(metrics.tsb),
+        ctlChange: metrics.ctlChange,
+        atlChange: metrics.atlChange,
+        weeklyTSS: weekSummary.totalTss,
+        weeklyHours: weekSummary.totalDuration / 3600,
+      },
+    });
+  })
+);
+
+/**
+ * POST /api/analytics/initialize-pmc
+ * Initialize or recalculate PMC for a user
+ * First recalculates TSS for all activities, then rebuilds PMC
+ */
+router.post(
+  '/initialize-pmc',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { pmcService } = await import('../services/metrics/pmcService');
+    const { activitySyncService } = await import('../services/activities/syncService');
+
+    // First recalculate TSS for all activities
+    const tssResult = await activitySyncService.recalculateAllTSS(req.user!.userId);
+
+    // Then initialize/recalculate PMC
+    await pmcService.initializePMC(req.user!.userId);
+
+    res.json({
+      success: true,
+      data: {
+        message: 'PMC initialized successfully',
+        activitiesProcessed: tssResult.processed,
+        tssUpdated: tssResult.updated,
+      },
+    });
+  })
+);
+
+/**
+ * POST /api/analytics/recalculate-tss
+ * Recalculate TSS for all activities (useful after updating profile thresholds)
+ */
+router.post(
+  '/recalculate-tss',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { activitySyncService } = await import('../services/activities/syncService');
+    const { pmcService } = await import('../services/metrics/pmcService');
+
+    // Recalculate TSS for all activities
+    const result = await activitySyncService.recalculateAllTSS(req.user!.userId);
+
+    // Rebuild PMC with new TSS values
+    await pmcService.initializePMC(req.user!.userId);
+
+    res.json({
+      success: true,
+      data: {
+        message: 'TSS recalculated successfully',
+        activitiesProcessed: result.processed,
+        tssUpdated: result.updated,
+      },
+    });
+  })
+);
+
+// Helper functions for status labels
+function getCTLStatus(ctl: number): string {
+  if (ctl >= 100) return 'Elite';
+  if (ctl >= 70) return 'Advanced';
+  if (ctl >= 50) return 'Intermediate';
+  if (ctl >= 30) return 'Recreational';
+  return 'Beginner';
+}
+
+function getATLStatus(atl: number): string {
+  if (atl >= 150) return 'Very High';
+  if (atl >= 100) return 'High';
+  if (atl >= 50) return 'Moderate';
+  return 'Low';
+}
+
+function getTSBStatus(tsb: number): string {
+  if (tsb >= 25) return 'Very Fresh';
+  if (tsb >= 10) return 'Fresh';
+  if (tsb >= -10) return 'Neutral';
+  if (tsb >= -25) return 'Tired';
+  return 'Very Tired';
+}
+
+/**
  * GET /api/analytics/zones
  * Get all training zones for user
  */
@@ -275,6 +447,207 @@ router.get(
     res.json({
       success: true,
       data: recentPRs,
+    });
+  })
+);
+
+/**
+ * GET /api/analytics/activity-peaks
+ * Get peak values calculated directly from activities (not stored PRs)
+ */
+router.get(
+  '/activity-peaks',
+  authMiddleware,
+  [query('sport').optional().isIn(['BIKE', 'RUN'])],
+  validateRequest,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const sportType = (req.query.sport as 'BIKE' | 'RUN') || 'BIKE';
+
+    // Get all activities for this sport
+    const activities = await prisma.activity.findMany({
+      where: {
+        userId: req.user!.userId,
+        sportType,
+      },
+      orderBy: { startDate: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        startDate: true,
+        movingTime: true,
+        distance: true,
+        avgPower: true,
+        maxPower: true,
+        avgSpeed: true,
+        maxSpeed: true,
+        avgHeartRate: true,
+        maxHeartRate: true,
+        tss: true,
+        efficiencyFactor: true,
+      },
+    });
+
+    if (activities.length === 0) {
+      res.json({
+        success: true,
+        data: {
+          sportType,
+          peaks: [],
+          bests: {},
+        },
+      });
+      return;
+    }
+
+    // Calculate bests from activities
+    const bests: Record<string, { value: number; activityId: string; activityName: string; date: Date }> = {};
+
+    for (const activity of activities) {
+      // Max Power (bike)
+      if (sportType === 'BIKE' && activity.maxPower) {
+        if (!bests.maxPower || activity.maxPower > bests.maxPower.value) {
+          bests.maxPower = {
+            value: activity.maxPower,
+            activityId: activity.id,
+            activityName: activity.name,
+            date: activity.startDate,
+          };
+        }
+      }
+
+      // Avg Power (bike) - best for activities >= 20min
+      if (sportType === 'BIKE' && activity.avgPower && activity.movingTime >= 1200) {
+        if (!bests.avgPower20min || activity.avgPower > bests.avgPower20min.value) {
+          bests.avgPower20min = {
+            value: activity.avgPower,
+            activityId: activity.id,
+            activityName: activity.name,
+            date: activity.startDate,
+          };
+        }
+      }
+
+      // Avg Power (bike) - best for activities >= 60min
+      if (sportType === 'BIKE' && activity.avgPower && activity.movingTime >= 3600) {
+        if (!bests.avgPower60min || activity.avgPower > bests.avgPower60min.value) {
+          bests.avgPower60min = {
+            value: activity.avgPower,
+            activityId: activity.id,
+            activityName: activity.name,
+            date: activity.startDate,
+          };
+        }
+      }
+
+      // Fastest pace/speed (run)
+      if (sportType === 'RUN' && activity.maxSpeed) {
+        if (!bests.maxSpeed || activity.maxSpeed > bests.maxSpeed.value) {
+          bests.maxSpeed = {
+            value: activity.maxSpeed,
+            activityId: activity.id,
+            activityName: activity.name,
+            date: activity.startDate,
+          };
+        }
+      }
+
+      // Best avg pace for 5km+ runs
+      if (sportType === 'RUN' && activity.avgSpeed && activity.distance && activity.distance >= 5000) {
+        if (!bests.avgPace5k || activity.avgSpeed > bests.avgPace5k.value) {
+          bests.avgPace5k = {
+            value: activity.avgSpeed,
+            activityId: activity.id,
+            activityName: activity.name,
+            date: activity.startDate,
+          };
+        }
+      }
+
+      // Best avg pace for 10km+ runs
+      if (sportType === 'RUN' && activity.avgSpeed && activity.distance && activity.distance >= 10000) {
+        if (!bests.avgPace10k || activity.avgSpeed > bests.avgPace10k.value) {
+          bests.avgPace10k = {
+            value: activity.avgSpeed,
+            activityId: activity.id,
+            activityName: activity.name,
+            date: activity.startDate,
+          };
+        }
+      }
+
+      // Longest distance
+      if (activity.distance) {
+        if (!bests.longestDistance || activity.distance > bests.longestDistance.value) {
+          bests.longestDistance = {
+            value: activity.distance,
+            activityId: activity.id,
+            activityName: activity.name,
+            date: activity.startDate,
+          };
+        }
+      }
+
+      // Longest duration
+      if (!bests.longestDuration || activity.movingTime > bests.longestDuration.value) {
+        bests.longestDuration = {
+          value: activity.movingTime,
+          activityId: activity.id,
+          activityName: activity.name,
+          date: activity.startDate,
+        };
+      }
+
+      // Max HR
+      if (activity.maxHeartRate) {
+        if (!bests.maxHR || activity.maxHeartRate > bests.maxHR.value) {
+          bests.maxHR = {
+            value: activity.maxHeartRate,
+            activityId: activity.id,
+            activityName: activity.name,
+            date: activity.startDate,
+          };
+        }
+      }
+
+      // Highest TSS
+      if (activity.tss) {
+        if (!bests.highestTSS || activity.tss > bests.highestTSS.value) {
+          bests.highestTSS = {
+            value: activity.tss,
+            activityId: activity.id,
+            activityName: activity.name,
+            date: activity.startDate,
+          };
+        }
+      }
+
+      // Best EF
+      if (activity.efficiencyFactor) {
+        if (!bests.bestEF || activity.efficiencyFactor > bests.bestEF.value) {
+          bests.bestEF = {
+            value: activity.efficiencyFactor,
+            activityId: activity.id,
+            activityName: activity.name,
+            date: activity.startDate,
+          };
+        }
+      }
+    }
+
+    // Convert to array format for frontend
+    const peaks = Object.entries(bests).map(([key, data]) => ({
+      metric: key,
+      ...data,
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        sportType,
+        totalActivities: activities.length,
+        peaks,
+        bests,
+      },
     });
   })
 );
