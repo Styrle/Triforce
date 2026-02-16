@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   MuscleGroup,
   MuscleGroupScore,
@@ -8,12 +8,15 @@ import {
 } from '../../types/strength';
 import {
   MUSCLE_PATHS,
-  BODY_FILL_PATHS,
   SVG_VIEWBOX,
   FRONT_VIEW_MUSCLES,
   BACK_VIEW_MUSCLES,
-  BODY_COLORS,
+  hexToRgba,
 } from '../../assets/muscle-model';
+
+// Import images directly for Vite bundling
+import frontImage from '../../assets/muscle-model-front.jpg';
+import backImage from '../../assets/muscle-model-back.jpg';
 
 interface AnatomicalModelProps {
   muscleScores: MuscleGroupScore[];
@@ -43,6 +46,10 @@ const CLASSIFICATION_LEVELS: Classification[] = [
   'world_class',
 ];
 
+// Unscored muscle appearance
+const UNSCORED_FILL = 'rgba(100, 116, 139, 0.25)';
+const UNSCORED_STROKE = 'rgba(71, 85, 105, 0.4)';
+
 export const AnatomicalModel: React.FC<AnatomicalModelProps> = ({
   muscleScores,
   className = '',
@@ -60,10 +67,13 @@ export const AnatomicalModel: React.FC<AnatomicalModelProps> = ({
   const [hoveredMuscle, setHoveredMuscle] = useState<MuscleGroup | null>(null);
 
   // Create a map for quick score lookup
-  const scoreMap = new Map<MuscleGroup, MuscleGroupScore>();
-  muscleScores.forEach((score) => {
-    scoreMap.set(score.muscleGroup, score);
-  });
+  const scoreMap = useMemo(() => {
+    const map = new Map<MuscleGroup, MuscleGroupScore>();
+    muscleScores.forEach((score) => {
+      map.set(score.muscleGroup, score);
+    });
+    return map;
+  }, [muscleScores]);
 
   // Handle mouse enter on muscle
   const handleMouseEnter = useCallback((
@@ -93,161 +103,156 @@ export const AnatomicalModel: React.FC<AnatomicalModelProps> = ({
   // Get color for a muscle group
   const getMuscleColor = useCallback((muscleGroup: MuscleGroup): string => {
     const score = scoreMap.get(muscleGroup);
-    if (!score) return BODY_COLORS.unscoredFill;
+    if (!score) return UNSCORED_FILL;
     return getClassificationColor(score.classification);
   }, [scoreMap]);
 
   // Render a single body view (front or back)
   const renderBodyView = (view: 'front' | 'back', label: string) => {
     const musclesForView = view === 'front' ? FRONT_VIEW_MUSCLES : BACK_VIEW_MUSCLES;
+    const imageSrc = view === 'front' ? frontImage : backImage;
+    const viewBox = SVG_VIEWBOX[view]; // Use correct viewBox for each view
 
     return (
       <div className="flex flex-col items-center flex-1">
         <div className="text-sm font-semibold text-gray-600 mb-2 tracking-wide">{label}</div>
-        <svg
-          viewBox={`0 0 ${SVG_VIEWBOX.width} ${SVG_VIEWBOX.height}`}
-          className="w-full h-auto"
+
+        {/* Container with relative positioning for image + SVG overlay */}
+        <div
+          className="relative"
           style={{
             maxHeight: showBothViews ? '480px' : '550px',
-            maxWidth: showBothViews ? '180px' : '280px'
+            maxWidth: showBothViews ? '200px' : '300px',
+            aspectRatio: `${viewBox.width} / ${viewBox.height}`,
           }}
         >
-          {/* Gradient and filter definitions */}
-          <defs>
-            {/* Body gradient - lighter silver tone like SS */}
-            <linearGradient id={`bodyGradient-${view}`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#C9CDD2" />
-              <stop offset="50%" stopColor="#A8ADB5" />
-              <stop offset="100%" stopColor="#8B929C" />
-            </linearGradient>
-
-            {/* Skin highlight gradient */}
-            <linearGradient id={`skinHighlight-${view}`} x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#D4D8DD" />
-              <stop offset="100%" stopColor="#B8BDC5" />
-            </linearGradient>
-
-            {/* Muscle glow filter for hover effect */}
-            <filter id={`muscleGlow-${view}`} x="-40%" y="-40%" width="180%" height="180%">
-              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-              <feMerge>
-                <feMergeNode in="coloredBlur"/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
-
-            {/* Drop shadow for depth */}
-            <filter id={`dropShadow-${view}`} x="-10%" y="-10%" width="120%" height="120%">
-              <feDropShadow dx="2" dy="3" stdDeviation="3" floodColor="#000" floodOpacity="0.2"/>
-            </filter>
-
-            {/* Muscle texture pattern */}
-            <pattern id={`muscleTexture-${view}`} patternUnits="userSpaceOnUse" width="4" height="4">
-              <path d="M 0 2 L 4 2" stroke="rgba(0,0,0,0.08)" strokeWidth="0.5"/>
-            </pattern>
-          </defs>
-
-          {/* Base body silhouette (light gray/silver background) */}
-          <path
-            d={BODY_FILL_PATHS[view]}
-            fill={`url(#bodyGradient-${view})`}
-            stroke="#9CA3AF"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            filter={`url(#dropShadow-${view})`}
+          {/* Background anatomical image */}
+          <img
+            src={imageSrc}
+            alt={`${view} view anatomical model`}
+            className="w-full h-full object-contain"
+            style={{
+              filter: 'brightness(1.05) contrast(1.02)',
+            }}
           />
 
-          {/* Muscle Groups */}
-          {musclesForView.map((muscleGroup) => {
-            const pathData = MUSCLE_PATHS[muscleGroup];
-            const score = scoreMap.get(muscleGroup);
-            const hasData = !!score;
-            const muscleColor = getMuscleColor(muscleGroup);
-            const isHovered = hoveredMuscle === muscleGroup;
+          {/* SVG overlay for interactive muscle regions */}
+          <svg
+            viewBox={`0 0 ${viewBox.width} ${viewBox.height}`}
+            className="absolute inset-0 w-full h-full"
+            style={{ pointerEvents: 'none' }}
+          >
+            {/* Filter definitions */}
+            <defs>
+              {/* Glow filter for hover effect */}
+              <filter id={`muscleGlow-${view}`} x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feFlood floodColor="#fff" floodOpacity="0.6" result="glowColor" />
+                <feComposite in="glowColor" in2="blur" operator="in" result="glow" />
+                <feMerge>
+                  <feMergeNode in="glow" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
 
-            return (
-              <g key={muscleGroup}>
-                {/* Main muscle fill */}
-                <path
-                  d={pathData.path}
-                  fill={muscleColor}
-                  fillOpacity={hasData ? (isHovered ? 1 : 0.92) : 0.4}
-                  fillRule="evenodd"
-                  stroke={isHovered ? 'rgba(255,255,255,0.95)' : (hasData ? 'rgba(80,80,80,0.5)' : 'rgba(100,100,100,0.3)')}
-                  strokeWidth={isHovered ? '1.5' : '0.8'}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  filter={isHovered ? `url(#muscleGlow-${view})` : undefined}
-                  className={`transition-all duration-150 ${hasData ? 'cursor-pointer' : ''}`}
-                  onMouseEnter={(e) => handleMouseEnter(e, muscleGroup)}
-                  onMouseLeave={handleMouseLeave}
-                />
+              {/* Drop shadow for depth */}
+              <filter id={`muscleShadow-${view}`} x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="1" dy="2" stdDeviation="2" floodColor="#000" floodOpacity="0.3"/>
+              </filter>
+            </defs>
 
-                {/* Muscle fiber lines for texture effect - visible striations */}
-                {hasData && pathData.fiberPaths && pathData.fiberPaths.map((fiberPath, i) => (
+            {/* Muscle overlay paths */}
+            {musclesForView.map((muscleGroup) => {
+              const pathData = MUSCLE_PATHS[muscleGroup];
+              const score = scoreMap.get(muscleGroup);
+              const hasData = !!score;
+              const muscleColor = getMuscleColor(muscleGroup);
+              const isHovered = hoveredMuscle === muscleGroup;
+
+              return (
+                <g key={muscleGroup} style={{ pointerEvents: 'auto' }}>
+                  {/* Base muscle overlay with classification color */}
                   <path
-                    key={i}
-                    d={fiberPath}
-                    fill="none"
-                    stroke="rgba(40,60,40,0.15)"
-                    strokeWidth="0.6"
+                    d={pathData.path}
+                    fill={hasData ? hexToRgba(muscleColor, 0.55) : UNSCORED_FILL}
+                    fillRule="evenodd"
+                    stroke={hasData ? hexToRgba(muscleColor, 0.8) : UNSCORED_STROKE}
+                    strokeWidth={isHovered ? 2.5 : 1.5}
                     strokeLinecap="round"
-                    className="pointer-events-none"
-                    opacity={isHovered ? 0.3 : 0.2}
+                    strokeLinejoin="round"
+                    filter={isHovered ? `url(#muscleGlow-${view})` : undefined}
+                    style={{
+                      mixBlendMode: hasData ? 'multiply' : 'normal',
+                      transition: 'all 0.15s ease-out',
+                      cursor: hasData ? 'pointer' : 'default',
+                    }}
+                    className={isHovered ? 'opacity-90' : 'opacity-100'}
                   />
-                ))}
 
-                {/* Additional fiber lines for more texture */}
-                {hasData && pathData.fiberPaths && pathData.fiberPaths.map((fiberPath, i) => (
+                  {/* Hover highlight overlay */}
+                  {isHovered && (
+                    <path
+                      d={pathData.path}
+                      fill="rgba(255,255,255,0.25)"
+                      fillRule="evenodd"
+                      stroke="rgba(255,255,255,0.9)"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="pointer-events-none"
+                    />
+                  )}
+
+                  {/* Interactive overlay (transparent hit area) */}
                   <path
-                    key={`highlight-${i}`}
-                    d={fiberPath}
-                    fill="none"
-                    stroke="rgba(255,255,255,0.12)"
-                    strokeWidth="0.4"
-                    strokeLinecap="round"
-                    className="pointer-events-none"
-                    style={{ transform: 'translate(0.5px, 0.5px)' }}
-                    opacity={isHovered ? 0.25 : 0.15}
+                    d={pathData.path}
+                    fill="transparent"
+                    fillRule="evenodd"
+                    className="cursor-pointer"
+                    onMouseEnter={(e) => handleMouseEnter(e, muscleGroup)}
+                    onMouseLeave={handleMouseLeave}
                   />
-                ))}
 
-                {/* Score label on muscle */}
-                {hasData && (
-                  <>
-                    {/* Text shadow/outline for readability */}
-                    <text
-                      x={pathData.labelPosition.x}
-                      y={pathData.labelPosition.y}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fontSize={showBothViews ? "9" : "11"}
-                      fontWeight="bold"
-                      fill="rgba(0,0,0,0.5)"
-                      className="pointer-events-none select-none"
-                      style={{ transform: 'translate(0.5px, 0.5px)' }}
-                    >
-                      {Math.round(score.score)}
-                    </text>
-                    <text
-                      x={pathData.labelPosition.x}
-                      y={pathData.labelPosition.y}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fontSize={showBothViews ? "9" : "11"}
-                      fontWeight="bold"
-                      fill="#fff"
-                      className="pointer-events-none select-none"
-                    >
-                      {Math.round(score.score)}
-                    </text>
-                  </>
-                )}
-              </g>
-            );
-          })}
-        </svg>
+                  {/* Score label on muscle */}
+                  {hasData && (
+                    <>
+                      {/* Text shadow for readability */}
+                      <text
+                        x={pathData.labelPosition.x}
+                        y={pathData.labelPosition.y}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fontSize={showBothViews ? "11" : "14"}
+                        fontWeight="bold"
+                        fill="rgba(0,0,0,0.7)"
+                        className="pointer-events-none select-none"
+                        style={{ transform: 'translate(0.8px, 0.8px)' }}
+                      >
+                        {Math.round(score.score)}
+                      </text>
+                      {/* Main score text */}
+                      <text
+                        x={pathData.labelPosition.x}
+                        y={pathData.labelPosition.y}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fontSize={showBothViews ? "11" : "14"}
+                        fontWeight="bold"
+                        fill="#fff"
+                        className="pointer-events-none select-none"
+                        style={{
+                          textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                        }}
+                      >
+                        {Math.round(score.score)}
+                      </text>
+                    </>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+        </div>
       </div>
     );
   };

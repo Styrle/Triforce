@@ -3,15 +3,22 @@ import { prisma } from '../src/config/database';
 // Increase timeout for database operations
 jest.setTimeout(30000);
 
-// Clean up database before tests
+// Clean up database before tests (skipped when DB is unavailable or mocked)
 beforeAll(async () => {
-  // Connect to test database
-  await prisma.$connect();
+  try {
+    await prisma.$connect();
+  } catch {
+    // Database not available - unit tests with mocked prisma will still work
+  }
 });
 
 // Clean up after all tests
 afterAll(async () => {
-  await prisma.$disconnect();
+  try {
+    await prisma.$disconnect();
+  } catch {
+    // Already disconnected or not connected
+  }
 });
 
 // Optional: Reset database between test suites

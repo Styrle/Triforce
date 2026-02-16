@@ -48,3 +48,24 @@ export {
   useCreateTemplate,
   useDeleteTemplate,
 } from './usePlans';
+
+export {
+  useWorkoutSessions,
+  useWorkoutSession,
+  usePersonalBests,
+  useVolumeAnalytics,
+  useCreateWorkout,
+  useUpdateWorkoutSession,
+  useDeleteWorkoutSession,
+  useCalculatePercentage,
+  useCalculateRPE,
+  useRepRangeChart,
+} from './useWorkouts';
+
+export {
+  useCustomExercises,
+  useCombinedExercises,
+  useCreateExercise,
+  useUpdateExercise,
+  useDeleteExercise,
+} from './useExercises';

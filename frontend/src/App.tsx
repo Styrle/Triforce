@@ -20,6 +20,8 @@ import { Analytics } from './pages/Analytics';
 import { Strength } from './pages/Strength';
 import { Nutrition } from './pages/Nutrition';
 import { Wellness } from './pages/Wellness';
+import { Workouts } from './pages/Workouts';
+import { DevMuscleEditor } from './pages/DevMuscleEditor';
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -98,10 +100,14 @@ function App() {
         <Route path="/plans/new" element={<PlanBuilder />} />
         <Route path="/plans/:id" element={<PlanDetail />} />
         <Route path="/strength" element={<Strength />} />
+        <Route path="/workouts" element={<Workouts />} />
         <Route path="/nutrition" element={<Nutrition />} />
         <Route path="/wellness" element={<Wellness />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
+
+      {/* Dev tools (no auth required) */}
+      <Route path="/dev/muscle-editor" element={<DevMuscleEditor />} />
 
       {/* Redirects */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />

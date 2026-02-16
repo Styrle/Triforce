@@ -36,6 +36,7 @@ model User {
   dailyNutrition   DailyNutrition[]
   routines         Routine[]
   workoutTemplates WorkoutTemplate[]
+  customExercises  CustomExercise[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -563,6 +564,29 @@ model StrengthExercise {
   @@index([sessionId])
 }
 
+model CustomExercise {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name            String
+  description     String?
+  category        ExerciseCategory @default(OTHER)
+  equipment       String?
+  isBodyweight    Boolean          @default(false)
+
+  // Optional muscle group mappings as JSON array
+  // [{ "muscleGroup": "CHEST", "contribution": 0.60 }, ...]
+  muscleContributions Json?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
 // ============ TRAINING PLANS ============
 
 model TrainingPlan {
@@ -1039,6 +1063,18 @@ enum MuscleGroup {
   GLUTES
   HAMSTRINGS
   CALVES
+}
+
+enum ExerciseCategory {
+  SQUAT
+  FLOOR_PULL
+  HORIZONTAL_PRESS
+  VERTICAL_PRESS
+  PULL
+  ISOLATION
+  ACCESSORY
+  CARDIO
+  OTHER
 }
 
 enum PlanType {

@@ -12,12 +12,14 @@ import {
   Info,
   Award,
   Trash2,
+  PlayCircle,
+  ListPlus,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import * as d3 from 'd3';
 import { api } from '../services/api';
 
-type TabType = 'log' | 'progress' | 'standards' | 'analysis';
+type TabType = 'log' | 'record' | 'progress' | 'standards' | 'analysis' | 'exercises';
 
 interface LiftRecord {
   id: string;
@@ -72,6 +74,7 @@ import {
   RelativeStrengthsChart,
   StrengthScoreCard
 } from '../components/strength';
+import { RecordWorkoutTab, ExercisesTab } from '../components/workout';
 
 // All 44 lift types
 const LIFT_TYPES = [
@@ -132,9 +135,11 @@ export function Strength() {
 
   const tabs: { id: TabType; label: string; icon: React.ElementType }[] = [
     { id: 'log', label: 'Lift Log', icon: Calendar },
+    { id: 'record', label: 'Record Workout', icon: PlayCircle },
     { id: 'progress', label: 'Progress', icon: TrendingUp },
     { id: 'standards', label: 'Standards', icon: Target },
     { id: 'analysis', label: 'Analysis', icon: Dumbbell },
+    { id: 'exercises', label: 'My Exercises', icon: ListPlus },
   ];
 
   return (
@@ -173,9 +178,11 @@ export function Strength() {
 
       {/* Tab Content */}
       {activeTab === 'log' && <LiftLogTab />}
+      {activeTab === 'record' && <RecordWorkoutTab />}
       {activeTab === 'progress' && <ProgressTab />}
       {activeTab === 'standards' && <StandardsTab />}
       {activeTab === 'analysis' && <AnalysisTab />}
+      {activeTab === 'exercises' && <ExercisesTab />}
 
       {/* Add Lift Modal */}
       {showAddModal && <AddLiftModal onClose={() => setShowAddModal(false)} />}

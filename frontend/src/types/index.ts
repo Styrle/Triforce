@@ -1,6 +1,12 @@
 // Export strength types
 export * from './strength';
 
+// Export workout types
+export * from './workout';
+
+// Export exercise types
+export * from './exercise';
+
 // User types
 export interface User {
   id: string;
