@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
+import type { AxiosError } from 'axios';
 import App from './App';
 import './index.css';
 
@@ -13,7 +14,12 @@ const queryClient = new QueryClient({
       staleTime: 5 * 60 * 1000, // 5 minutes
       gcTime: 30 * 60 * 1000, // 30 minutes (formerly cacheTime)
       refetchOnWindowFocus: false,
-      retry: 1,
+      // Client errors (incl. 429 rate limits) won't succeed on retry and retrying adds load
+      retry: (failureCount, error) => {
+        const status = (error as AxiosError).response?.status;
+        if (status && status >= 400 && status < 500) return false;
+        return failureCount < 1;
+      },
     },
   },
 });

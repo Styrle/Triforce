@@ -5,7 +5,7 @@ import { ERROR_CODES } from '../config/constants';
 // General API rate limiter
 export const apiLimiter = rateLimit({
   windowMs: config.rateLimit.windowMs, // 15 minutes by default
-  max: config.rateLimit.max, // 100 requests per window by default
+  max: config.rateLimit.max, // 1000 requests per window by default
   message: {
     success: false,
     error: {
@@ -24,7 +24,8 @@ export const apiLimiter = rateLimit({
 // Stricter rate limiter for auth endpoints
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts per 15 minutes
+  max: 10, // 10 failed attempts per 15 minutes
+  skipSuccessfulRequests: true, // Only failed attempts count toward brute-force protection
   message: {
     success: false,
     error: {
